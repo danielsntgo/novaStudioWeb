@@ -1,0 +1,23 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Configuración</h1>
+      <p class="fp-pagina__subtitulo">Datos del negocio, impuestos, pagos y numeración de documentos.</p>
+    </div>
+  </header>
+
+  <div class="fp-segmento pestanas" role="tablist" aria-label="Secciones de configuración">
+    @for (p of pestanas; track p.id) {
+      <button type="button" role="tab" [class.activo]="pestana() === p.id" [attr.aria-selected]="pestana() === p.id" (click)="pestana.set(p.id)">{{ p.titulo }}</button>
+    }
+  </div>
+
+  <div class="contenido" role="tabpanel">
+    @switch (pestana()) {
+      @case ('negocio') { <app-datos-negocio /> }
+      @case ('impuestos') { <app-lista-crud [config]="impuestos" /> }
+      @case ('pagos') { <app-lista-crud [config]="pagos" /> }
+      @case ('numeracion') { <app-numeracion /> }
+    }
+  </div>
+</div>

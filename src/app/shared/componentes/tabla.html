@@ -1,0 +1,49 @@
+<div class="contenedor">
+  <table>
+    <thead>
+      <tr>
+        @for (c of columnas(); track c.titulo) {
+          <th [class.derecha]="c.alinear === 'derecha'" [class.centro]="c.alinear === 'centro'" [class.movil-oculta]="c.ocultarEnMovil">{{ c.titulo }}</th>
+        }
+        @if (acciones()) { <th class="derecha">Acciones</th> }
+      </tr>
+    </thead>
+    <tbody>
+      @if (cargando() && filas().length === 0) {
+        @for (n of esqueleto; track n) {
+          <tr class="esqueleto" aria-hidden="true">
+            @for (c of columnas(); track c.titulo) { <td [class.movil-oculta]="c.ocultarEnMovil"><span class="barra"></span></td> }
+            @if (acciones()) { <td><span class="barra"></span></td> }
+          </tr>
+        }
+      } @else {
+        @for (fila of filas(); track $index) {
+          <tr [class.recargando]="cargando()">
+            @for (c of columnas(); track c.titulo) {
+              <td [class.derecha]="c.alinear === 'derecha'" [class.centro]="c.alinear === 'centro'" [class.movil-oculta]="c.ocultarEnMovil">
+                @if (c.insignia?.(fila); as i) {
+                  <span class="fp-insignia" [class]="'fp-insignia fp-insignia--' + i.tono">{{ i.texto }}</span>
+                } @else {
+                  <span class="principal">{{ c.valor(fila) }}</span>
+                  @if (c.secundario?.(fila); as s) { <span class="secundario">{{ s }}</span> }
+                }
+              </td>
+            }
+            @if (acciones(); as plantilla) {
+              <td class="derecha acciones">
+                <ng-container [ngTemplateOutlet]="plantilla" [ngTemplateOutletContext]="{ $implicit: fila }" />
+              </td>
+            }
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+
+  @if (!cargando() && filas().length === 0) {
+    <div class="vacio">
+      <p class="vacio__titulo">{{ vacioTitulo() }}</p>
+      @if (vacioDetalle()) { <p class="vacio__detalle">{{ vacioDetalle() }}</p> }
+    </div>
+  }
+</div>

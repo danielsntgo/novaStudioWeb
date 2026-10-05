@@ -1,0 +1,35 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Facturación</h1>
+      <p class="fp-pagina__subtitulo">Consulta comprobantes y facturas generadas desde ventas.</p>
+    </div>
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="cargar()"><svg app-icono="refrescar" [tamano]="17"></svg> Actualizar</button>
+  </header>
+
+  <div class="fp-herramientas">
+    <select class="fp-input fp-select filtro" aria-label="Estado" [ngModel]="estado()" (ngModelChange)="cambiar('estado', $event)">
+      <option value="">Todos los estados</option>
+      <option value="Finalizada">Finalizada</option>
+      <option value="ParcialmenteDevuelta">Parcialmente devuelta</option>
+      <option value="Devuelta">Devuelta</option>
+      <option value="Anulada">Anulada</option>
+    </select>
+    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiar('desde', $event)" /></label>
+    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiar('hasta', $event)" /></label>
+  </div>
+
+  @if (error(); as mensaje) {
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargar()">Reintentar</button></div>
+  }
+
+  <section class="fp-tarjeta fp-tarjeta--plana">
+    <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargando()" vacioTitulo="Sin documentos" vacioDetalle="Los documentos aparecen después de registrar ventas.">
+      <ng-template #acciones let-fila>
+        <button type="button" class="fp-enlace" [disabled]="!tieneDocumento(fila, 'Comprobante')" (click)="descargar(fila, 'comprobante')">Comprobante</button>
+        <button type="button" class="fp-enlace" [disabled]="!tieneDocumento(fila, 'Factura')" (click)="descargar(fila, 'factura')">Factura</button>
+      </ng-template>
+    </app-tabla>
+    <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
+  </section>
+</div>

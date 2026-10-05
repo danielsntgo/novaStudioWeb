@@ -1,0 +1,10 @@
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.tarjeta { padding: 22px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.cabecera h3 { font-size: 18px; font-weight: 650; }
+.descripcion { color: var(--fp-texto-suave); font-size: 14px; }
+dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin: 4px 0; }
+dl div { padding: 10px 12px; border-radius: 12px; background: var(--fp-gris-50); }
+dt { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-gris-500); }
+dd { margin: 2px 0 0; font-size: 17px; font-weight: 600; }
+.nota { margin-top: 16px; font-size: 13px; color: var(--fp-texto-suave); }

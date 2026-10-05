@@ -1,0 +1,66 @@
+<main class="pagina">
+  <section class="tarjeta fp-tarjeta" aria-labelledby="titulo-cambio">
+    <div class="encabezado">
+      <app-logo-flexpos [tamano]="48" />
+      <h1 id="titulo-cambio">{{ obligatorio() ? 'Crea tu contraseña' : 'Cambiar contraseña' }}</h1>
+      <p>
+        @if (obligatorio()) {
+          Por seguridad, debes reemplazar la contraseña temporal antes de continuar.
+        } @else {
+          Elige una contraseña nueva para tu cuenta.
+        }
+      </p>
+    </div>
+
+    <form [formGroup]="formulario" (ngSubmit)="guardar()" novalidate>
+      @if (error()) {
+        <div class="fp-alerta" role="alert">
+          <svg app-icono="alerta" [tamano]="18"></svg>
+          <span>{{ error() }}</span>
+        </div>
+      }
+
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="contrasenaActual">
+          {{ obligatorio() ? 'Contraseña temporal' : 'Contraseña actual' }}
+        </label>
+        <app-campo-contrasena inputId="contrasenaActual" formControlName="contrasenaActual" autocomplete="current-password" />
+        @if (formulario.controls.contrasenaActual.touched && formulario.controls.contrasenaActual.invalid) {
+          <span class="fp-campo__error">Escribe tu contraseña actual.</span>
+        }
+      </div>
+
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="contrasenaNueva">Contraseña nueva</label>
+        <app-campo-contrasena inputId="contrasenaNueva" formControlName="contrasenaNueva" autocomplete="new-password" />
+        @if (formulario.controls.contrasenaNueva.touched && formulario.controls.contrasenaNueva.invalid) {
+          <span class="fp-campo__error">Escribe la contraseña nueva.</span>
+        } @else if (formulario.touched && formulario.hasError('igualAActual')) {
+          <span class="fp-campo__error">La contraseña nueva debe ser distinta de la actual.</span>
+        } @else {
+          <span class="ayuda">El sistema validará que cumpla los requisitos de seguridad.</span>
+        }
+      </div>
+
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="confirmacion">Confirma la contraseña nueva</label>
+        <app-campo-contrasena inputId="confirmacion" formControlName="confirmacion" autocomplete="new-password" />
+        @if (formulario.controls.confirmacion.touched && formulario.controls.confirmacion.invalid) {
+          <span class="fp-campo__error">Repite la contraseña nueva.</span>
+        } @else if (formulario.controls.confirmacion.touched && formulario.hasError('noCoinciden')) {
+          <span class="fp-campo__error">Las contraseñas no coinciden.</span>
+        }
+      </div>
+
+      <button type="submit" class="fp-boton fp-boton--bloque boton-guardar" [class.fp-cargando]="enviando()" [disabled]="enviando()">
+        {{ enviando() ? 'Guardando…' : 'Guardar contraseña' }}
+      </button>
+
+      @if (obligatorio()) {
+        <button type="button" class="enlace-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
+      } @else {
+        <a class="enlace-secundario" routerLink="/">Volver al inicio</a>
+      }
+    </form>
+  </section>
+</main>

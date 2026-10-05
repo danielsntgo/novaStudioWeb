@@ -1,0 +1,68 @@
+<form [formGroup]="formulario()" (ngSubmit)="enviar()" novalidate>
+  @if (error()) {
+    <div class="fp-alerta" role="alert">
+      <svg app-icono="alerta" [tamano]="18"></svg>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <div class="rejilla">
+    @for (campo of campos(); track campo.nombre) {
+      @if (esVisible(campo)) {
+        <div class="fp-campo" [class.medio]="campo.ancho === 'medio'">
+          @if (campo.tipo === 'casilla') {
+            <label class="casilla">
+              <input type="checkbox" [formControlName]="campo.nombre" />
+              <span class="casilla__texto">
+                <span class="casilla__titulo">{{ campo.etiqueta }}</span>
+                @if (campo.ayuda) { <span class="ayuda">{{ campo.ayuda }}</span> }
+              </span>
+            </label>
+          } @else {
+            <label class="fp-etiqueta" [for]="'campo-' + campo.nombre">
+              {{ campo.etiqueta }}@if (campo.requerido) { <span class="obligatorio" aria-hidden="true"> *</span> }
+            </label>
+
+            @switch (campo.tipo) {
+              @case ('area') {
+                <textarea class="fp-input" rows="3" [id]="'campo-' + campo.nombre" [formControlName]="campo.nombre" [attr.placeholder]="campo.marcador ?? null"></textarea>
+              }
+              @case ('seleccion') {
+                <select class="fp-input fp-select" [id]="'campo-' + campo.nombre" [formControlName]="campo.nombre">
+                  <option value="">{{ campo.marcador ?? 'Selecciona una opción' }}</option>
+                  @for (op of campo.opciones ?? []; track op.valor) {
+                    <option [value]="op.valor">{{ op.etiqueta }}</option>
+                  }
+                </select>
+              }
+              @default {
+                <input
+                  class="fp-input"
+                  [class.mayusculas]="campo.mayusculas"
+                  [id]="'campo-' + campo.nombre"
+                  [type]="tipoHtml(campo)"
+                  [formControlName]="campo.nombre"
+                  [attr.step]="paso(campo)"
+                  [attr.min]="campo.min ?? null"
+                  [attr.inputmode]="modoTeclado(campo)"
+                  [attr.placeholder]="campo.marcador ?? null"
+                  autocomplete="off"
+                />
+              }
+            }
+            @if (mensajeError(campo); as mensaje) {
+              <span class="fp-campo__error">{{ mensaje }}</span>
+            } @else if (campo.ayuda) {
+              <span class="ayuda">{{ campo.ayuda }}</span>
+            }
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <div class="acciones">
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="cancelar.emit()" [disabled]="enviando()">{{ textoCancelar() }}</button>
+    <button type="submit" class="fp-boton" [class.fp-cargando]="enviando()" [disabled]="enviando()">{{ textoGuardar() }}</button>
+  </div>
+</form>

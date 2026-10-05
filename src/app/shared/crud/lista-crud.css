@@ -1,0 +1,13 @@
+:host { display: block; }
+.busqueda { position: relative; flex: 1 1 260px; max-width: 380px; display: block; }
+.busqueda svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--fp-gris-400); pointer-events: none; }
+.busqueda .fp-input { padding-left: 42px; border-radius: 999px; }
+.filtro { width: auto; min-width: 170px; border-radius: 999px; padding-top: 9px; padding-bottom: 9px; font-size: 14px; }
+.filtro-casilla { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--fp-gris-800); cursor: pointer; }
+.filtro-casilla input { width: 17px; height: 17px; accent-color: var(--fp-primario); }
+.error-carga { margin-bottom: 16px; align-items: center; }
+.error-carga span { flex: 1; }
+.acciones-fila { display: inline-flex; gap: 2px; }
+
+.titulo-seccion { font-size: 20px; font-weight: 650; letter-spacing: -0.025em; }
+.cabecera-incrustada { margin-bottom: 16px; }

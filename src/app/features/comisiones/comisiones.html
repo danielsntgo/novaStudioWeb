@@ -1,0 +1,105 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Comisiones</h1>
+      <p class="fp-pagina__subtitulo">Reglas, devengos, ajustes y liquidaciones de servicios.</p>
+    </div>
+    <div class="acciones-cabecera">
+      <button type="button" class="fp-boton fp-boton--secundario" (click)="abrirRegla(null)"><svg app-icono="mas" [tamano]="17"></svg> Nueva regla</button>
+      <button type="button" class="fp-boton" [disabled]="seleccionados().size === 0" (click)="abrirLiquidacion()">Liquidar selección</button>
+    </div>
+  </header>
+
+  <div class="fp-segmento pestanas" role="tablist" aria-label="Secciones de comisiones">
+    <button type="button" [class.activo]="pestana() === 'movimientos'" (click)="pestana.set('movimientos')">Movimientos</button>
+    <button type="button" [class.activo]="pestana() === 'reglas'" (click)="pestana.set('reglas')">Reglas</button>
+    <button type="button" [class.activo]="pestana() === 'liquidaciones'" (click)="pestana.set('liquidaciones')">Liquidaciones</button>
+  </div>
+
+  <div class="fp-herramientas">
+    <select class="fp-input fp-select filtro" aria-label="Empleado" [ngModel]="filtroEmpleadoId()" (ngModelChange)="cambiarFiltro('empleado', $event)">
+      <option value="">Todos los empleados</option>
+      @for (e of empleados(); track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
+    </select>
+    @if (pestana() === 'reglas') {
+      <select class="fp-input fp-select filtro" aria-label="Servicio" [ngModel]="filtroServicioId()" (ngModelChange)="cambiarFiltro('servicio', $event)">
+        <option value="">Todos los servicios</option>
+        @for (s of servicios(); track s.id) { <option [value]="s.id">{{ s.nombre }}</option> }
+      </select>
+    }
+    @if (pestana() === 'movimientos') {
+      <select class="fp-input fp-select filtro" aria-label="Estado" [ngModel]="estado()" (ngModelChange)="cambiarFiltro('estado', $event)">
+        <option value="">Todos los estados</option>
+        <option value="Pendiente">Pendiente</option>
+        <option value="Pagada">Pagada</option>
+        <option value="Revertida">Revertida</option>
+      </select>
+      <select class="fp-input fp-select filtro" aria-label="Tipo" [ngModel]="tipoMovimiento()" (ngModelChange)="cambiarFiltro('tipo', $event)">
+        <option value="">Todos los movimientos</option>
+        <option value="DevengoServicio">Devengos</option>
+        <option value="AjusteDevolucion">Ajustes</option>
+      </select>
+    }
+    @if (pestana() !== 'reglas') {
+      <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiarFiltro('desde', $event)" /></label>
+      <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiarFiltro('hasta', $event)" /></label>
+    }
+  </div>
+
+  @if (seleccionados().size > 0) {
+    <div class="seleccion fp-tarjeta">
+      <span>{{ seleccionados().size }} comisiones seleccionadas</span>
+      <strong>{{ formatearMoneda(totalSeleccionado()) }}</strong>
+      <button type="button" class="fp-enlace" (click)="limpiarSeleccion()">Limpiar</button>
+    </div>
+  }
+
+  @switch (pestana()) {
+    @case ('movimientos') {
+      @if (errorMovimientos(); as mensaje) { <div class="fp-alerta error" role="alert">{{ mensaje }}</div> }
+      <section class="fp-tarjeta fp-tarjeta--plana">
+        <app-tabla [columnas]="columnasMovimientos" [filas]="movimientos()" [cargando]="cargandoMovimientos()" vacioTitulo="Sin comisiones" vacioDetalle="Las comisiones se generan al vender servicios con regla activa.">
+          <ng-template #acciones let-fila>
+            @if (seleccionable(fila)) {
+              <button type="button" class="fp-enlace" (click)="alternarSeleccion(fila)">{{ estaSeleccionada(fila.id) ? 'Quitar' : 'Seleccionar' }}</button>
+            }
+          </ng-template>
+        </app-tabla>
+        <app-paginador [pagina]="paginaMovimientos()" [tamano]="20" [total]="totalMovimientos()" (cambio)="irA('movimientos', $event)" />
+      </section>
+    }
+    @case ('reglas') {
+      @if (errorReglas(); as mensaje) { <div class="fp-alerta error" role="alert">{{ mensaje }}</div> }
+      <section class="fp-tarjeta fp-tarjeta--plana">
+        <app-tabla [columnas]="columnasReglas" [filas]="reglas()" [cargando]="cargandoReglas()" vacioTitulo="Sin reglas" vacioDetalle="Crea reglas para devengar comisiones al vender servicios.">
+          <ng-template #acciones let-fila>
+            <button type="button" class="fp-enlace" (click)="abrirRegla(fila)">Editar</button>
+            <button type="button" class="fp-enlace" [class.fp-enlace--peligro]="fila.activa" (click)="cambiarEstadoRegla(fila)">{{ fila.activa ? 'Desactivar' : 'Activar' }}</button>
+          </ng-template>
+        </app-tabla>
+        <app-paginador [pagina]="paginaReglas()" [tamano]="20" [total]="totalReglas()" (cambio)="irA('reglas', $event)" />
+      </section>
+    }
+    @case ('liquidaciones') {
+      @if (errorLiquidaciones(); as mensaje) { <div class="fp-alerta error" role="alert">{{ mensaje }}</div> }
+      <section class="fp-tarjeta fp-tarjeta--plana">
+        <app-tabla [columnas]="columnasLiquidaciones" [filas]="liquidaciones()" [cargando]="cargandoLiquidaciones()" vacioTitulo="Sin liquidaciones" vacioDetalle="Las liquidaciones aparecerán al pagar comisiones pendientes." />
+        <app-paginador [pagina]="paginaLiquidaciones()" [tamano]="20" [total]="totalLiquidaciones()" (cambio)="irA('liquidaciones', $event)" />
+      </section>
+    }
+  }
+</div>
+
+<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" (cerrar)="cerrarPanel()">
+  @if (panel()) {
+    <app-formulario-dinamico
+      [campos]="camposPanel()"
+      [valorInicial]="valorInicialPanel()"
+      [enviando]="enviando()"
+      [error]="errorEnvio()"
+      [textoGuardar]="panel()?.tipo === 'liquidacion' ? 'Liquidar' : 'Guardar regla'"
+      (guardar)="guardarPanel($event)"
+      (cancelar)="cerrarPanel()"
+    />
+  }
+</app-panel-lateral>

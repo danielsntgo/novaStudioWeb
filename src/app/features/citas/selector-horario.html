@@ -1,0 +1,22 @@
+<div class="selector">
+  <p class="titulo">Horarios disponibles <span class="duracion">· duración {{ duracionTexto }}</span></p>
+
+  @if (cargando()) {
+    <p class="estado">Buscando disponibilidad…</p>
+  } @else if (error(); as mensaje) {
+    <p class="fp-campo__error">{{ mensaje }}</p>
+  } @else if (empleados().length === 0) {
+    <p class="estado">No hay horarios disponibles para este servicio en la fecha elegida. Prueba con otro día, o revisa que los empleados tengan horario configurado.</p>
+  } @else {
+    @for (e of empleados(); track e.empleadoId) {
+      <div class="empleado">
+        <div class="empleado__nombre"><span class="avatar" aria-hidden="true">{{ inicialDe(e.empleadoNombre) }}</span> {{ e.empleadoNombre }}</div>
+        <div class="horas" role="group" [attr.aria-label]="'Horarios de ' + e.empleadoNombre">
+          @for (h of e.horas; track h) {
+            <button type="button" class="hora" [class.elegida]="esElegida(e, h)" [attr.aria-pressed]="esElegida(e, h)" (click)="elegir(e, h)">{{ h }}</button>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>

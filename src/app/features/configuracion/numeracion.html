@@ -1,0 +1,42 @@
+@if (cargando()) {
+  <p class="fp-texto-tenue">Cargando numeración…</p>
+} @else if (errorCarga(); as mensaje) {
+  <div class="fp-alerta" role="alert">{{ mensaje }}</div>
+} @else {
+  <div class="rejilla">
+    @for (t of tipos; track t.tipo) {
+      @let n = buscar(t.tipo);
+      <section class="fp-tarjeta tarjeta">
+        <div class="cabecera">
+          <h3>{{ t.tipo }}</h3>
+          @if (n) { <span class="fp-insignia fp-insignia--exito">Configurada</span> } @else { <span class="fp-insignia fp-insignia--aviso">Sin configurar</span> }
+        </div>
+        <p class="descripcion">{{ t.descripcion }}</p>
+        @if (n) {
+          <dl>
+            <div><dt>Prefijo</dt><dd>{{ n.prefijo || '—' }}</dd></div>
+            <div><dt>Siguiente número</dt><dd>{{ siguiente(n) }}</dd></div>
+          </dl>
+          <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" (click)="abrir(t.tipo)">Cambiar prefijo</button>
+        } @else {
+          <button type="button" class="fp-boton fp-boton--pequeno" (click)="abrir(t.tipo)">Configurar numeración</button>
+        }
+      </section>
+    }
+  </div>
+  <p class="nota">El número siguiente lo controla el sistema al emitir documentos y no se edita a mano, para evitar saltos o duplicados.</p>
+}
+
+<app-panel-lateral [abierto]="editando() !== null" [titulo]="existente() ? 'Cambiar prefijo' : 'Configurar numeración'" [subtitulo]="editando() ?? ''" (cerrar)="editando.set(null)">
+  @if (editando()) {
+    <app-formulario-dinamico
+      [campos]="campos()"
+      [valorInicial]="valorInicial()"
+      [enviando]="guardando()"
+      [error]="errorGuardar()"
+      [erroresServidor]="erroresCampos()"
+      (guardar)="guardar($event)"
+      (cancelar)="editando.set(null)"
+    />
+  }
+</app-panel-lateral>

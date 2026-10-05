@@ -1,0 +1,96 @@
+@if (soloLectura()) {
+  @let c = compra()!;
+  <div class="resumen">
+    <div><span class="etq">Proveedor</span><strong>{{ c.nombreProveedor }}</strong></div>
+    <div><span class="etq">Fecha de compra</span><strong>{{ formatoFechaHora(c.fechaCompraUtc) }}</strong></div>
+    @if (c.referencia) { <div><span class="etq">Referencia</span><strong>{{ c.referencia }}</strong></div> }
+    <div><span class="etq">Confirmada</span><strong>{{ formatoFechaHora(c.fechaConfirmacionUtc) }}</strong></div>
+  </div>
+  @if (c.observacion) { <p class="observacion">{{ c.observacion }}</p> }
+
+  <div class="tabla-lineas">
+    <table>
+      <thead><tr><th>Artículo</th><th class="der">Cantidad</th><th class="der">Costo unit.</th><th class="der">Total</th></tr></thead>
+      <tbody>
+        @for (d of c.detalles; track d.id) {
+          <tr>
+            <td>{{ d.nombreArticulo }}</td>
+            <td class="der">{{ formatoCantidad(d.cantidad) }} {{ d.unidadBase }}</td>
+            <td class="der">{{ formatoMoneda(d.costoUnitario) }}</td>
+            <td class="der">{{ formatoMoneda(d.totalLinea) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="total"><span>Total</span><strong>{{ formatoMoneda(c.total) }}</strong></p>
+  <div class="acciones"><button type="button" class="fp-boton" (click)="cerrar.emit()">Cerrar</button></div>
+} @else {
+  @if (error()) {
+    <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
+  }
+
+  <div class="general">
+    <div class="fp-campo completo">
+      <label class="fp-etiqueta" for="c-proveedor">Proveedor <span class="obligatorio">*</span></label>
+      <select id="c-proveedor" class="fp-input fp-select" [ngModel]="proveedorId()" (ngModelChange)="proveedorId.set($event)">
+        <option value="">{{ cargandoListas() ? 'Cargando…' : 'Selecciona un proveedor' }}</option>
+        @for (p of proveedores(); track p.id) { <option [value]="p.id">{{ p.nombre }}</option> }
+      </select>
+      @if (!cargandoListas() && proveedores().length === 0) { <span class="ayuda">Primero crea un proveedor en el módulo Proveedores.</span> }
+    </div>
+    <div class="fp-campo">
+      <label class="fp-etiqueta" for="c-fecha">Fecha de la compra <span class="obligatorio">*</span></label>
+      <input id="c-fecha" type="date" class="fp-input" [ngModel]="fecha()" (ngModelChange)="fecha.set($event)" />
+    </div>
+    <div class="fp-campo">
+      <label class="fp-etiqueta" for="c-ref">Referencia o factura</label>
+      <input id="c-ref" type="text" class="fp-input" [ngModel]="referencia()" (ngModelChange)="referencia.set($event)" />
+    </div>
+    <div class="fp-campo completo">
+      <label class="fp-etiqueta" for="c-obs">Observación</label>
+      <textarea id="c-obs" rows="2" class="fp-input" [ngModel]="observacion()" (ngModelChange)="observacion.set($event)"></textarea>
+    </div>
+  </div>
+
+  <h3 class="titulo-lineas">Artículos comprados</h3>
+  <ul class="lineas">
+    @for (l of lineas(); track $index; let i = $index) {
+      <li class="linea">
+        <div class="fp-campo articulo">
+          <label class="fp-etiqueta" [for]="'l-art-' + i">Artículo</label>
+          <select [id]="'l-art-' + i" class="fp-input fp-select" [ngModel]="l.articuloId" (ngModelChange)="cambiarLinea(i, { articuloId: $event })">
+            <option value="">{{ cargandoListas() ? 'Cargando…' : 'Selecciona un artículo' }}</option>
+            @for (a of articulos(); track a.id) { <option [value]="a.id">{{ a.nombre }} ({{ a.unidadBase }})</option> }
+          </select>
+        </div>
+        <div class="fp-campo">
+          <label class="fp-etiqueta" [for]="'l-cant-' + i">Cantidad</label>
+          <input [id]="'l-cant-' + i" type="number" min="0" step="any" class="fp-input" [ngModel]="l.cantidad" (ngModelChange)="cambiarLinea(i, { cantidad: $event })" />
+        </div>
+        <div class="fp-campo">
+          <label class="fp-etiqueta" [for]="'l-costo-' + i">Costo unitario</label>
+          <input [id]="'l-costo-' + i" type="number" min="0" step="any" class="fp-input" [ngModel]="l.costoUnitario" (ngModelChange)="cambiarLinea(i, { costoUnitario: $event })" />
+        </div>
+        <div class="subtotal">
+          <span class="etq">Subtotal</span>
+          <strong>{{ formatoMoneda(totalLinea(l)) }}</strong>
+        </div>
+        <button type="button" class="quitar" (click)="quitarLinea(i)" [attr.aria-label]="'Quitar línea ' + (i + 1)">
+          <svg app-icono="cerrar" [tamano]="16"></svg>
+        </button>
+      </li>
+    }
+  </ul>
+  <button type="button" class="fp-enlace agregar" (click)="agregarLinea()"><svg app-icono="mas" [tamano]="14"></svg> Agregar artículo</button>
+
+  <p class="total"><span>Total</span><strong>{{ formatoMoneda(totalCalculado()) }}</strong></p>
+
+  @if (problema(); as p) { <p class="fp-campo__error problema">{{ p }}</p> }
+
+  <div class="acciones">
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="cerrar.emit()" [disabled]="enviando()">Cancelar</button>
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="guardar()" [disabled]="enviando() || problema() !== null">Guardar borrador</button>
+    <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" (click)="confirmar()" [disabled]="enviando() || problema() !== null || lineas().length === 0">Confirmar compra</button>
+  </div>
+}

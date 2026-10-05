@@ -1,0 +1,8 @@
+.vacio { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 64px 24px; }
+.vacio__icono {
+  width: 68px; height: 68px; border-radius: 20px; display: grid; place-items: center; margin-bottom: 8px;
+  background: linear-gradient(145deg, var(--fp-azul-50), var(--fp-azul-100)); color: var(--fp-azul-600);
+}
+.vacio h2 { font-size: 24px; font-weight: 700; }
+.vacio__texto { max-width: 440px; color: var(--fp-texto-suave); font-size: 15.5px; }
+.vacio__volver { margin-top: 12px; font-size: 14.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }

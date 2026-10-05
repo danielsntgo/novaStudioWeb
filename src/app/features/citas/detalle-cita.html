@@ -1,0 +1,51 @@
+@let c = cita();
+@if (error()) {
+  <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
+}
+
+@if (modo() === 'ver') {
+  <div class="cabecera">
+    <span class="fp-insignia" [class]="'fp-insignia fp-insignia--' + estado().tono">{{ estado().texto }}</span>
+  </div>
+
+  <div class="horario">
+    <svg app-icono="reloj" [tamano]="20"></svg>
+    <div>
+      <strong>{{ diaCita() }}</strong>
+      <span>{{ horaInicio() }} – {{ horaFin() }} · {{ duracion() }} min</span>
+    </div>
+  </div>
+
+  <dl>
+    <div><dt>Cliente</dt><dd>{{ c.clienteNombre }}</dd></div>
+    <div><dt>Servicio</dt><dd>{{ c.servicioNombre }}</dd></div>
+    <div><dt>Atiende</dt><dd>{{ c.empleadoNombre }}</dd></div>
+  </dl>
+
+  @if (transiciones().length > 0 || reprogramable()) {
+    <h3>Acciones</h3>
+    <div class="acciones">
+      @for (t of transiciones(); track t.estado) {
+        <button type="button" class="fp-boton fp-boton--pequeno" [class.fp-boton--secundario]="!t.peligro && t.estado !== 'Confirmada'" [class.fp-boton--peligro]="t.peligro" [disabled]="enviando()" (click)="cambiarEstado(t)">{{ t.texto }}</button>
+      }
+      @if (reprogramable()) {
+        <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="enviando()" (click)="iniciarReprogramacion()">Reprogramar</button>
+      }
+    </div>
+  } @else {
+    <p class="final">Esta cita ya está en un estado final: no se puede reabrir ni reprogramar.</p>
+  }
+} @else {
+  <p class="intro">Elige la nueva fecha y el horario. Se mantiene el mismo servicio: <strong>{{ c.servicioNombre }}</strong>.</p>
+  <div class="fp-campo">
+    <label class="fp-etiqueta" for="rep-fecha">Nueva fecha</label>
+    <input id="rep-fecha" type="date" class="fp-input" [min]="hoy" [ngModel]="fecha()" (ngModelChange)="fecha.set($event)" />
+  </div>
+  @if (fecha()) {
+    <div class="selector"><app-selector-horario [servicioId]="c.servicioId" [duracionMinutos]="duracion()" [fecha]="fecha()" [(valor)]="horario" /></div>
+  }
+  <div class="acciones fin">
+    <button type="button" class="fp-boton fp-boton--secundario" [disabled]="enviando()" (click)="modo.set('ver')">Volver</button>
+    <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" [disabled]="!horario() || enviando()" (click)="reprogramar()">Guardar nuevo horario</button>
+  </div>
+}

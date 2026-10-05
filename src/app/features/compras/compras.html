@@ -1,0 +1,42 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Compras</h1>
+      <p class="fp-pagina__subtitulo">Compras a proveedores. Al confirmarlas, el inventario se actualiza solo.</p>
+    </div>
+    <button type="button" class="fp-boton" (click)="abrir(null)"><svg app-icono="mas" [tamano]="18"></svg> Nueva compra</button>
+  </header>
+
+  <div class="fp-herramientas">
+    <label class="busqueda">
+      <svg app-icono="buscar" [tamano]="17"></svg>
+      <input type="search" class="fp-input" placeholder="Buscar por proveedor o referencia" aria-label="Buscar compras" (input)="alBuscar($any($event.target).value)" />
+    </label>
+    <select class="fp-input fp-select filtro" aria-label="Estado" [ngModel]="estado()" (ngModelChange)="cambiar('estado', $event)">
+      <option value="">Todos los estados</option>
+      <option value="Borrador">Borrador</option>
+      <option value="Confirmada">Confirmada</option>
+    </select>
+    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiar('desde', $event)" /></label>
+    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiar('hasta', $event)" /></label>
+  </div>
+
+  @if (error(); as mensaje) {
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargar()">Reintentar</button></div>
+  }
+
+  <section class="fp-tarjeta fp-tarjeta--plana">
+    <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargando()" vacioTitulo="No hay compras" vacioDetalle="Registra tu primera compra con el botón «Nueva compra».">
+      <ng-template #acciones let-fila>
+        <button type="button" class="fp-enlace" (click)="abrir(fila)">{{ fila.estado === 'Confirmada' ? 'Ver detalle' : 'Editar' }}</button>
+      </ng-template>
+    </app-tabla>
+    <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
+  </section>
+</div>
+
+<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" ancho="ancho" (cerrar)="cerrarPanel()">
+  @if (panel(); as p) {
+    <app-compra-panel [compra]="p.compra" (guardado)="alGuardar()" (cerrar)="cerrarPanel()" />
+  }
+</app-panel-lateral>

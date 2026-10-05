@@ -1,0 +1,94 @@
+@let c = config();
+<div [class.fp-pagina]="!c.incrustado">
+  <header class="fp-pagina__cabecera" [class.cabecera-incrustada]="c.incrustado">
+    <div>
+      @if (c.incrustado) {
+        <h2 class="titulo-seccion">{{ c.titulo }}</h2>
+      } @else {
+        <h1 class="fp-pagina__titulo">{{ c.titulo }}</h1>
+      }
+      <p [class]="c.incrustado ? 'fp-texto-tenue' : 'fp-pagina__subtitulo'">{{ c.subtitulo }}</p>
+    </div>
+    @if (c.puedeCrear) {
+      <button type="button" class="fp-boton" (click)="abrirCrear()">
+        <svg app-icono="mas" [tamano]="18"></svg> {{ c.textoNuevo }}
+      </button>
+    }
+  </header>
+
+  <div class="fp-herramientas">
+    @if (c.buscador) {
+      <label class="busqueda">
+        <svg app-icono="buscar" [tamano]="17"></svg>
+        <input type="search" class="fp-input" [placeholder]="c.buscador" [ngModel]="buscar()" (ngModelChange)="alBuscar($event)" [attr.aria-label]="c.buscador" />
+      </label>
+    }
+
+    @if (c.filtroActivo) {
+      <div class="fp-segmento" role="group" aria-label="Estado">
+        <button type="button" [class.activo]="activo() === 'activos'" (click)="cambiarActivo('activos')">Activos</button>
+        <button type="button" [class.activo]="activo() === 'inactivos'" (click)="cambiarActivo('inactivos')">Inactivos</button>
+      </div>
+    }
+
+    @for (f of c.filtros ?? []; track f.nombre) {
+      @if (f.tipo === 'seleccion') {
+        <select class="fp-input fp-select filtro" [attr.aria-label]="f.etiqueta" [ngModel]="valorFiltro(f.nombre)" (ngModelChange)="cambiarFiltro(f.nombre, $event)">
+          <option value="">{{ f.etiqueta }}</option>
+          @for (o of f.opciones ?? []; track o.valor) { <option [value]="o.valor">{{ o.etiqueta }}</option> }
+        </select>
+      } @else {
+        <label class="filtro-casilla">
+          <input type="checkbox" [ngModel]="valorFiltro(f.nombre) === true" (ngModelChange)="cambiarFiltro(f.nombre, $event)" />
+          {{ f.etiqueta }}
+        </label>
+      }
+    }
+  </div>
+
+  @if (errorCarga(); as mensaje) {
+    <div class="fp-alerta error-carga" role="alert">
+      <svg app-icono="alerta" [tamano]="18"></svg>
+      <span>{{ mensaje }}</span>
+      <button type="button" class="fp-enlace" (click)="recargar()">Reintentar</button>
+    </div>
+  }
+
+  <section class="fp-tarjeta fp-tarjeta--plana" [attr.aria-busy]="cargando()">
+    <app-tabla [columnas]="c.columnas" [filas]="filas()" [cargando]="cargando()" [vacioTitulo]="c.vacio.titulo" [vacioDetalle]="c.vacio.detalle">
+      @if (c.puedeEditar || c.puedeCambiarEstado || (c.acciones?.length ?? 0) > 0) {
+        <ng-template #acciones let-fila>
+          <div class="acciones-fila">
+            @if (c.puedeEditar) { <button type="button" class="fp-enlace" (click)="abrirEditar(fila)">Editar</button> }
+            @for (a of c.acciones ?? []; track a.id) {
+              @if (visible(a, fila)) { <button type="button" class="fp-enlace" (click)="ejecutarAccion(a, fila)">{{ a.etiqueta }}</button> }
+            }
+            @if (c.puedeCambiarEstado) {
+              <button type="button" class="fp-enlace" [class.fp-enlace--peligro]="fila.activo" (click)="cambiarEstado(fila)">
+                {{ fila.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            }
+          </div>
+        </ng-template>
+      }
+    </app-tabla>
+    @if (c.paginado) {
+      <app-paginador [pagina]="pagina()" [tamano]="tamanoPagina()" [total]="total()" (cambio)="irAPagina($event)" />
+    }
+  </section>
+</div>
+
+<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" [ancho]="c.anchoPanel ?? 'normal'" (cerrar)="cerrarPanel()">
+  @if (panel()) {
+    <app-formulario-dinamico
+      [campos]="camposPanel()"
+      [valorInicial]="valorInicialPanel()"
+      [enviando]="enviando()"
+      [error]="errorEnvio()"
+      [erroresServidor]="erroresCampos()"
+      [textoGuardar]="textoGuardar()"
+      (guardar)="guardar($event)"
+      (cancelar)="cerrarPanel()"
+    />
+  }
+</app-panel-lateral>

@@ -1,0 +1,49 @@
+<main class="pagina">
+  <section class="tarjeta fp-tarjeta" aria-labelledby="titulo-login">
+    <div class="encabezado">
+      <app-logo-flexpos [tamano]="56" />
+      <h1 id="titulo-login">Bienvenido a FlexPos</h1>
+      <p>Inicia sesión para gestionar tu negocio.</p>
+    </div>
+
+    <form [formGroup]="formulario" (ngSubmit)="iniciarSesion()" novalidate>
+      @if (error()) {
+        <div class="fp-alerta" role="alert">
+          <svg app-icono="alerta" [tamano]="18"></svg>
+          <span>{{ error() }}</span>
+        </div>
+      }
+
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="correo">Correo electrónico</label>
+        <input
+          class="fp-input"
+          id="correo"
+          type="email"
+          formControlName="correo"
+          autocomplete="username"
+          placeholder="nombre@negocio.com"
+        />
+        @if (formulario.controls.correo.touched && formulario.controls.correo.errors; as errores) {
+          <span class="fp-campo__error">
+            {{ errores['required'] ? 'Escribe tu correo electrónico.' : 'Escribe un correo válido.' }}
+          </span>
+        }
+      </div>
+
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="contrasena">Contraseña</label>
+        <app-campo-contrasena inputId="contrasena" formControlName="contrasena" autocomplete="current-password" placeholder="Tu contraseña" />
+        @if (formulario.controls.contrasena.touched && formulario.controls.contrasena.errors) {
+          <span class="fp-campo__error">Escribe tu contraseña.</span>
+        }
+      </div>
+
+      <button type="submit" class="fp-boton fp-boton--bloque boton-entrar" [class.fp-cargando]="enviando()" [disabled]="enviando()">
+        {{ enviando() ? 'Entrando…' : 'Iniciar sesión' }}
+      </button>
+    </form>
+  </section>
+
+  <p class="legal">© FlexPos · Sistema de gestión para negocios de servicios</p>
+</main>

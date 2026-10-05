@@ -1,0 +1,31 @@
+:host { display: block; }
+
+.pagina {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background:
+    radial-gradient(900px 520px at 85% -10%, rgba(74, 160, 247, 0.22), transparent 60%),
+    radial-gradient(700px 480px at 0% 110%, rgba(15, 63, 122, 0.12), transparent 60%),
+    var(--fp-fondo);
+}
+
+.tarjeta { width: 100%; max-width: 440px; padding: 36px 36px 30px; box-shadow: var(--fp-sombra-l); border-radius: 24px; }
+
+.encabezado { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; margin-bottom: 24px; }
+.encabezado app-logo-flexpos { margin-bottom: 8px; }
+.encabezado h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; }
+.encabezado p { color: var(--fp-texto-suave); font-size: 14.5px; max-width: 320px; }
+
+form { display: flex; flex-direction: column; gap: 16px; }
+.ayuda { font-size: 12.5px; color: var(--fp-gris-500); }
+
+.boton-guardar { margin-top: 6px; padding-block: 13px; }
+
+.enlace-secundario {
+  align-self: center; border: 0; background: none; padding: 6px; cursor: pointer;
+  font-size: 14px; color: var(--fp-primario);
+}
+.enlace-secundario:hover { text-decoration: underline; }
+
+@media (max-width: 480px) {
+  .tarjeta { padding: 28px 22px 24px; border-radius: 20px; }
+}

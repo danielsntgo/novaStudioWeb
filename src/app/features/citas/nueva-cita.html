@@ -1,0 +1,64 @@
+@if (error()) {
+  <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
+}
+
+<div class="formulario">
+  <div class="fp-campo cliente">
+    <label class="fp-etiqueta" for="cita-cliente">Cliente <span class="obligatorio">*</span></label>
+    <input
+      id="cita-cliente"
+      type="search"
+      class="fp-input"
+      placeholder="Escribe al menos 2 letras del nombre, documento o teléfono"
+      autocomplete="off"
+      [ngModel]="textoCliente()"
+      (ngModelChange)="escribirCliente($event)"
+      (focus)="listaAbierta.set(textoCliente().length >= 2)"
+      (blur)="cerrarListaConDemora()"
+      role="combobox"
+      [attr.aria-expanded]="listaAbierta()"
+      aria-controls="cita-clientes"
+    />
+    @if (cliente()) { <span class="elegido"><svg app-icono="check" [tamano]="14"></svg> Cliente seleccionado</span> }
+    @if (listaAbierta() && !cliente()) {
+      <ul id="cita-clientes" class="opciones" role="listbox">
+        @if (buscando()) {
+          <li class="aviso">Buscando…</li>
+        } @else {
+          @for (c of resultados(); track c.id) {
+            <li role="option"><button type="button" (mousedown)="elegirCliente(c)">
+              <span class="nombre">{{ c.nombre }}</span>
+              <span class="detalle">{{ c.documento || c.telefono || '' }}</span>
+            </button></li>
+          } @empty {
+            <li class="aviso">Sin resultados. Crea el cliente primero en el módulo Clientes.</li>
+          }
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="fp-campo">
+    <label class="fp-etiqueta" for="cita-servicio">Servicio <span class="obligatorio">*</span></label>
+    <select id="cita-servicio" class="fp-input fp-select" [ngModel]="servicioId()" (ngModelChange)="servicioId.set($event)">
+      <option value="">Selecciona un servicio</option>
+      @for (s of servicios(); track s.id) { <option [value]="s.id">{{ s.nombre }} · {{ s.duracionMinutos }} min</option> }
+    </select>
+  </div>
+
+  <div class="fp-campo">
+    <label class="fp-etiqueta" for="cita-fecha">Fecha <span class="obligatorio">*</span></label>
+    <input id="cita-fecha" type="date" class="fp-input" [min]="hoy" [ngModel]="fecha()" (ngModelChange)="fecha.set($event)" />
+  </div>
+
+  @if (servicioId() && fecha()) {
+    <app-selector-horario [servicioId]="servicioId()" [duracionMinutos]="duracion()" [fecha]="fecha()" [(valor)]="horario" />
+  } @else {
+    <p class="pista">Elige un servicio y una fecha para ver los horarios disponibles.</p>
+  }
+</div>
+
+<div class="acciones">
+  <button type="button" class="fp-boton fp-boton--secundario" (click)="cerrar.emit()" [disabled]="enviando()">Cancelar</button>
+  <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" [disabled]="!puedeGuardar() || enviando()" (click)="guardar()">Agendar cita</button>
+</div>

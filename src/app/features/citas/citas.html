@@ -1,0 +1,106 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Citas</h1>
+      <p class="fp-pagina__subtitulo">{{ titulo() }} · {{ cantidad() }} {{ cantidad() === 1 ? 'cita' : 'citas' }}</p>
+    </div>
+    <button type="button" class="fp-boton" (click)="abrirNueva()"><svg app-icono="mas" [tamano]="18"></svg> Nueva cita</button>
+  </header>
+
+  <div class="barra">
+    <div class="navegacion">
+      <button type="button" class="flecha" (click)="mover(-1)" aria-label="Anterior"><svg app-icono="flecha-izquierda" [tamano]="18"></svg></button>
+      <button type="button" class="hoy" [disabled]="esHoy()" (click)="irAHoy()">Hoy</button>
+      <button type="button" class="flecha" (click)="mover(1)" aria-label="Siguiente"><svg app-icono="flecha-derecha" [tamano]="18"></svg></button>
+      <input type="date" class="fp-input selector-fecha" [ngModel]="fecha()" (ngModelChange)="elegirFecha($event)" aria-label="Ir a una fecha" />
+    </div>
+    <div class="derecha">
+      <label class="filtro-casilla"><input type="checkbox" [ngModel]="verCanceladas()" (ngModelChange)="verCanceladas.set($event)" /> Ver canceladas</label>
+      <div class="fp-segmento" role="group" aria-label="Vista">
+        <button type="button" [class.activo]="vista() === 'dia'" (click)="cambiarVista('dia')">Día</button>
+        <button type="button" [class.activo]="vista() === 'semana'" (click)="cambiarVista('semana')">Semana</button>
+      </div>
+    </div>
+  </div>
+
+  @if (error(); as mensaje) {
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="recargar()">Reintentar</button></div>
+  }
+  @if (hayMas) {
+    <div class="fp-alerta aviso" role="status"><svg app-icono="info" [tamano]="18"></svg><span>Hay {{ totalApi() }} citas en este rango y se muestran las primeras 100. Usa la vista de día para ver el resto.</span></div>
+  }
+
+  <section class="fp-tarjeta agenda" [attr.aria-busy]="cargando()" [class.cargando]="cargando()">
+    @if (vista() === 'dia') {
+      @if (columnas().length === 0 && !cargando()) {
+        <div class="vacio">
+          <p class="vacio__titulo">No hay citas este día</p>
+          <p class="vacio__detalle">Agenda una con el botón «Nueva cita».</p>
+        </div>
+      } @else {
+        <div class="cuadricula-contenedor">
+          <div class="cuadricula" [style.min-width.px]="64 + columnas().length * 190">
+            <div class="cabeceras" [style.grid-template-columns]="'64px repeat(' + columnas().length + ', minmax(190px, 1fr))'">
+              <div></div>
+              @for (col of columnas(); track col.empleadoId) { <div class="cabecera-columna">{{ col.empleadoNombre }}</div> }
+            </div>
+            <div class="cuerpo" [style.grid-template-columns]="'64px repeat(' + columnas().length + ', minmax(190px, 1fr))'" [style.height.px]="altoCuadricula()">
+              <div class="eje">
+                @for (h of horasEje().horas; track h; let i = $index) { <span class="hora-eje" [style.top.px]="i * pxPorHora">{{ h }}</span> }
+              </div>
+              @for (col of columnas(); track col.empleadoId) {
+                <div class="columna" [style.background-size]="'100% ' + pxPorHora + 'px'">
+                  @for (c of col.citas; track c.id) {
+                    <button type="button" class="bloque" [class]="'bloque bloque--' + c.estado" [class.compacto]="alto(c) < 62" [style.top.px]="top(c)" [style.height.px]="alto(c)" (click)="abrirDetalle(c)" [attr.aria-label]="hora(c) + ', ' + c.clienteNombre + ', ' + c.servicioNombre">
+                      <span class="bloque__hora">{{ hora(c) }}</span>
+                      <span class="bloque__cliente">{{ c.clienteNombre }}</span>
+                      <span class="bloque__servicio">{{ c.servicioNombre }}</span>
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    } @else {
+      <div class="semana">
+        @for (d of dias(); track d.fecha) {
+          <div class="dia" [class.hoy]="d.esHoy">
+            <button type="button" class="dia__cabecera" (click)="irADia(d.fecha)" [attr.aria-label]="'Ver ' + d.etiqueta">
+              <span>{{ d.etiqueta }}</span>
+              <span class="dia__cuenta">{{ d.citas.length }}</span>
+            </button>
+            <div class="dia__citas">
+              @for (c of d.citas; track c.id) {
+                <button type="button" class="tarjeta-cita" [class]="'tarjeta-cita bloque--' + c.estado" (click)="abrirDetalle(c)">
+                  <span class="bloque__hora">{{ horaInicio(c) }} · {{ c.empleadoNombre }}</span>
+                  <span class="bloque__cliente">{{ c.clienteNombre }}</span>
+                  <span class="bloque__servicio">{{ c.servicioNombre }}</span>
+                </button>
+              } @empty {
+                <p class="sin-citas">Sin citas</p>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <ul class="leyenda" aria-label="Leyenda de estados">
+    @for (e of ['Pendiente', 'Confirmada', 'Atendida', 'NoAsistio', 'Cancelada']; track e) {
+      <li><span class="punto" [class]="'punto bloque--' + e"></span>{{ estados[e].texto }}</li>
+    }
+  </ul>
+</div>
+
+<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" (cerrar)="cerrarPanel()">
+  @if (panel(); as p) {
+    @if (p.tipo === 'nueva') {
+      <app-nueva-cita [fechaInicial]="fecha()" (creada)="alCambiar()" (cerrar)="cerrarPanel()" />
+    } @else {
+      <app-detalle-cita [cita]="p.cita" (cambio)="alCambiar()" (cerrar)="cerrarPanel()" />
+    }
+  }
+</app-panel-lateral>

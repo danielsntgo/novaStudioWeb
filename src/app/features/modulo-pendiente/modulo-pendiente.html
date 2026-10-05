@@ -1,0 +1,15 @@
+<div class="fp-pagina">
+  <section class="vacio fp-tarjeta">
+    <span class="vacio__icono"><svg [app-icono]="icono()" [tamano]="30"></svg></span>
+    <h2>{{ modulo() }}</h2>
+    <p class="vacio__texto">
+      Esta pantalla se construirá en la <strong>Fase {{ fase() }}</strong> del frontend.
+      @if (backendListo()) {
+        La API de este módulo ya está disponible en el backend.
+      } @else {
+        El backend de este módulo todavía está pendiente.
+      }
+    </p>
+    <a class="vacio__volver" routerLink="/inicio"><svg app-icono="flecha-izquierda" [tamano]="14"></svg> Volver al inicio</a>
+  </section>
+</div>

@@ -1,0 +1,30 @@
+<div class="fp-pagina">
+  <header class="encabezado">
+    <p class="fecha">{{ fecha }}</p>
+    <h1 class="fp-pagina__titulo">{{ saludo() }}</h1>
+    <p class="fp-pagina__subtitulo">¿Qué quieres hacer hoy?</p>
+  </header>
+
+  @if (sinRol()) {
+    <div class="fp-alerta" role="alert">
+      <svg app-icono="alerta" [tamano]="18"></svg>
+      <span>
+        No se pudo determinar el rol de tu cuenta, por eso no hay accesos disponibles. Cierra sesión y vuelve a entrar;
+        si continúa, avisa al administrador.
+      </span>
+    </div>
+  } @else {
+    <section class="rejilla" aria-label="Accesos rápidos">
+      @for (acceso of accesos(); track acceso.ruta) {
+        <a class="acceso fp-tarjeta" [routerLink]="'/' + acceso.ruta">
+          <span class="acceso__icono"><svg [app-icono]="acceso.icono" [tamano]="22"></svg></span>
+          <span class="acceso__texto">
+            <span class="acceso__titulo">{{ acceso.titulo }}</span>
+            <span class="acceso__descripcion">{{ acceso.descripcion }}</span>
+          </span>
+          <svg class="acceso__flecha" app-icono="flecha-derecha" [tamano]="16"></svg>
+        </a>
+      }
+    </section>
+  }
+</div>

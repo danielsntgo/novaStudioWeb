@@ -1,0 +1,96 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Caja</h1>
+      <p class="fp-pagina__subtitulo">Apertura, movimientos manuales y arqueo del efectivo.</p>
+    </div>
+    <button type="button" class="fp-boton" [disabled]="actual() !== null" (click)="abrir('apertura')"><svg app-icono="cartera" [tamano]="18"></svg> Abrir caja</button>
+  </header>
+
+  <section class="estado fp-tarjeta" [attr.aria-busy]="cargandoActual()">
+    @if (errorActual(); as mensaje) {
+      <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarActual()">Reintentar</button></div>
+    } @else if (cargandoActual()) {
+      <p class="fp-texto-tenue">Consultando caja actual...</p>
+    } @else if (actual(); as caja) {
+      <div>
+        <span class="fp-insignia fp-insignia--exito">Caja abierta</span>
+        <h2>{{ monto(caja.efectivoEsperado) }}</h2>
+        <p>Esperado ahora · apertura {{ fecha(caja.fechaAperturaUtc) }}</p>
+      </div>
+      <div class="estado__acciones">
+        <button type="button" class="fp-boton fp-boton--secundario" (click)="abrir('movimiento')"><svg app-icono="mas" [tamano]="17"></svg> Movimiento</button>
+        <button type="button" class="fp-boton" (click)="abrir('cierre')"><svg app-icono="check" [tamano]="17"></svg> Cerrar caja</button>
+        <button type="button" class="fp-enlace" (click)="abrirDetalle(caja.id)">Ver detalle</button>
+      </div>
+    } @else {
+      <div>
+        <span class="fp-insignia fp-insignia--aviso">Sin caja abierta</span>
+        <h2>No hay caja activa</h2>
+        <p>Abre una caja para registrar ventas y movimientos de efectivo.</p>
+      </div>
+    }
+  </section>
+
+  <div class="fp-herramientas historial-herramientas">
+    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiarFecha('desde', $event)" /></label>
+    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiarFecha('hasta', $event)" /></label>
+    <button type="button" class="fp-enlace" (click)="cargarHistorial()"><svg app-icono="refrescar" [tamano]="16"></svg> Actualizar</button>
+  </div>
+
+  @if (errorHistorial(); as mensaje) {
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarHistorial()">Reintentar</button></div>
+  }
+
+  <section class="fp-tarjeta fp-tarjeta--plana">
+    <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargandoHistorial()" vacioTitulo="Sin cajas en el período" vacioDetalle="Cambia el rango de fechas o abre una caja nueva.">
+      <ng-template #acciones let-fila>
+        <button type="button" class="fp-enlace" (click)="abrirDetalle(fila.id)">Detalle</button>
+      </ng-template>
+    </app-tabla>
+    <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
+  </section>
+</div>
+
+<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" (cerrar)="cerrarPanel()">
+  @if (panel(); as p) {
+    @if (p.tipo === 'detalle') {
+      @if (errorEnvio(); as mensaje) { <div class="fp-alerta" role="alert">{{ mensaje }}</div> }
+      @if (cargandoDetalle()) {
+        <p class="fp-texto-tenue">Cargando detalle...</p>
+      } @else if (detalle(); as d) {
+        <div class="detalle">
+          <div class="resumen">
+            <div><span>Estado</span><strong>{{ d.caja.estado }}</strong></div>
+            <div><span>Apertura</span><strong>{{ monto(d.caja.efectivoApertura) }}</strong></div>
+            <div><span>Esperado</span><strong>{{ monto(d.caja.efectivoEsperado) }}</strong></div>
+            <div><span>Diferencia</span><strong>{{ monto(d.caja.diferenciaCierre) }}</strong></div>
+          </div>
+          <h3>Movimientos</h3>
+          <div class="movimientos">
+            @for (m of d.movimientos; track m.id) {
+              <article>
+                <div>
+                  <strong>{{ m.tipo }}</strong>
+                  <span>{{ fecha(m.fechaUtc) }} · {{ m.concepto ?? 'Sin concepto' }}</span>
+                </div>
+                <b>{{ formatearMoneda(m.importe, m.codigoMoneda) }}</b>
+              </article>
+            } @empty {
+              <p class="fp-texto-tenue">Esta caja todavía no tiene movimientos.</p>
+            }
+          </div>
+        </div>
+      }
+    } @else {
+      <app-formulario-dinamico
+        [campos]="camposPanel()"
+        [enviando]="enviando()"
+        [error]="errorEnvio()"
+        [textoGuardar]="textoGuardar()"
+        (guardar)="guardar($event)"
+        (cancelar)="cerrarPanel()"
+      />
+    }
+  }
+</app-panel-lateral>

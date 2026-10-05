@@ -1,0 +1,14 @@
+:host { display: block; }
+.formulario { display: flex; flex-direction: column; gap: 16px; margin-top: 4px; }
+.obligatorio { color: var(--fp-peligro); }
+.cliente { position: relative; }
+.elegido { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fp-exito); }
+.opciones { position: absolute; z-index: 5; left: 0; right: 0; top: 78px; margin: 0; padding: 6px; list-style: none; max-height: 260px; overflow-y: auto; background: #fff; border-radius: 14px; border: 1px solid var(--fp-borde-suave); box-shadow: var(--fp-sombra-l); }
+.opciones button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 12px; border: 0; border-radius: 10px; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.opciones button:hover { background: var(--fp-azul-50); }
+.nombre { font-weight: 500; font-size: 14.5px; }
+.detalle { font-size: 12.5px; color: var(--fp-gris-500); }
+.aviso { padding: 10px 12px; font-size: 13.5px; color: var(--fp-texto-suave); }
+.pista { font-size: 14px; color: var(--fp-texto-suave); padding: 4px 2px; }
+.acciones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+@media (max-width: 560px) { .acciones { flex-direction: column-reverse; } .acciones .fp-boton { width: 100%; } }

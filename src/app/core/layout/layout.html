@@ -1,0 +1,86 @@
+<div class="contenedor">
+  @if (menuAbierto()) {
+    <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
+  }
+
+  <aside class="lateral" [class.abierto]="menuAbierto()" aria-label="Navegación principal">
+    <a class="marca" routerLink="/inicio" (click)="cerrarMenu()" aria-label="FlexPos, ir al inicio">
+      <app-logo-flexpos [tamano]="36" />
+      <span class="marca__nombre">FlexPos</span>
+    </a>
+
+    <nav class="navegacion">
+      @for (seccion of secciones(); track seccion.titulo) {
+        <div class="seccion">
+          @if (seccion.titulo) {
+            <p class="seccion__titulo">{{ seccion.titulo }}</p>
+          }
+          @for (item of seccion.items; track item.ruta) {
+            <a class="enlace" [routerLink]="'/' + item.ruta" routerLinkActive="activo" (click)="cerrarMenu()">
+              <svg [app-icono]="item.icono" [tamano]="18"></svg>
+              <span>{{ item.titulo }}</span>
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <p class="pie">FlexPos · Gestión para negocios de servicios</p>
+  </aside>
+
+  <div class="principal">
+    <header class="cabecera">
+      <div class="cabecera__izquierda">
+        <button type="button" class="boton-menu" (click)="alternarMenu()" aria-label="Abrir o cerrar el menú">
+          <svg app-icono="menu" [tamano]="20"></svg>
+        </button>
+        <h1 class="cabecera__titulo">{{ titulo() }}</h1>
+      </div>
+
+      <div class="usuario">
+        <button
+          type="button"
+          class="usuario__boton"
+          (click)="alternarMenuUsuario($event)"
+          [attr.aria-expanded]="menuUsuarioAbierto()"
+          aria-haspopup="menu"
+        >
+          <span class="avatar" aria-hidden="true">{{ iniciales() }}</span>
+          <span class="usuario__datos">
+            <span class="usuario__nombre">{{ usuario()?.nombre }}</span>
+            <span class="usuario__rol">{{ rolPrincipal() }}</span>
+          </span>
+          <svg class="usuario__flecha" app-icono="flecha-abajo" [tamano]="14"></svg>
+        </button>
+
+        @if (menuUsuarioAbierto()) {
+          <div class="menu-usuario" role="menu">
+            <div class="menu-usuario__cabecera">
+              <span class="avatar avatar--grande" aria-hidden="true">{{ iniciales() }}</span>
+              <div>
+                <p class="menu-usuario__nombre">{{ usuario()?.nombre }}</p>
+                <p class="menu-usuario__correo">{{ usuario()?.correo }}</p>
+              </div>
+            </div>
+            <button type="button" class="menu-usuario__opcion" role="menuitem" (click)="irACambiarContrasena()">
+              <svg app-icono="llave" [tamano]="16"></svg> Cambiar contraseña
+            </button>
+            <button
+              type="button"
+              class="menu-usuario__opcion menu-usuario__opcion--salir"
+              role="menuitem"
+              [disabled]="cerrandoSesion()"
+              (click)="cerrarSesion()"
+            >
+              <svg app-icono="salir" [tamano]="16"></svg> Cerrar sesión
+            </button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <main class="contenido">
+      <router-outlet />
+    </main>
+  </div>
+</div>

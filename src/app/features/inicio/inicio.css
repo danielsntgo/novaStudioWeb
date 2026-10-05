@@ -1,0 +1,23 @@
+.encabezado { margin-bottom: 32px; }
+.fecha { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-azul-600); margin-bottom: 6px; }
+
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.acceso {
+  display: flex; align-items: center; gap: 16px; padding: 18px 18px;
+  color: var(--fp-texto); text-decoration: none;
+  transition: transform var(--fp-transicion), box-shadow var(--fp-transicion);
+}
+.acceso:hover { text-decoration: none; transform: translateY(-2px); box-shadow: var(--fp-sombra-l); }
+.acceso:active { transform: scale(0.99); }
+
+.acceso__icono {
+  flex: none; width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+  background: linear-gradient(145deg, var(--fp-azul-50), var(--fp-azul-100));
+  color: var(--fp-azul-600);
+}
+.acceso__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acceso__titulo { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; }
+.acceso__descripcion { font-size: 13.5px; color: var(--fp-texto-suave); }
+.acceso__flecha { color: var(--fp-gris-300); transition: transform var(--fp-transicion), color var(--fp-transicion); }
+.acceso:hover .acceso__flecha { transform: translateX(3px); color: var(--fp-azul-500); }

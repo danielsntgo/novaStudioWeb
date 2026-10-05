@@ -1,0 +1,19 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Inventario</h1>
+      <p class="fp-pagina__subtitulo">Existencias, entradas, salidas y alertas de stock.</p>
+    </div>
+  </header>
+
+  <div class="fp-segmento pestanas" role="tablist" aria-label="Secciones de inventario">
+    <button type="button" role="tab" [class.activo]="pestana() === 'articulos'" [attr.aria-selected]="pestana() === 'articulos'" (click)="pestana.set('articulos')">Artículos</button>
+    <button type="button" role="tab" [class.activo]="pestana() === 'movimientos'" [attr.aria-selected]="pestana() === 'movimientos'" (click)="pestana.set('movimientos')">Movimientos</button>
+  </div>
+
+  @if (pestana() === 'articulos') {
+    <app-lista-crud [config]="articulos" />
+  } @else {
+    <app-movimientos-inventario />
+  }
+</div>

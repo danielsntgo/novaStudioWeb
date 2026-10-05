@@ -1,0 +1,127 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Reportes</h1>
+      <p class="fp-pagina__subtitulo">Informes operativos con filtros y exportación.</p>
+    </div>
+    <div class="acciones">
+      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('pdf')">PDF</button>
+      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('xlsx')">Excel</button>
+      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('csv')">CSV</button>
+    </div>
+  </header>
+
+  <div class="tipos" role="tablist" aria-label="Tipo de reporte">
+    @for (t of tipos; track t.id) {
+      <button type="button" [class.activo]="tipo() === t.id" (click)="cambiarTipo(t.id)">{{ t.titulo }}</button>
+    }
+  </div>
+
+  <section class="filtros fp-tarjeta">
+    @if (tipo() !== 'inventario') {
+      <label>Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="desde.set($event); cargarReporte()" /></label>
+      <label>Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="hasta.set($event); cargarReporte()" /></label>
+    }
+    @if (admiteCliente()) {
+      <label>Cliente
+        <select class="fp-input fp-select" [ngModel]="clienteId()" (ngModelChange)="clienteId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (c of clientes(); track c.id) { <option [value]="c.id">{{ c.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (admiteEmpleado()) {
+      <label>Empleado
+        <select class="fp-input fp-select" [ngModel]="empleadoId()" (ngModelChange)="empleadoId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (e of empleados(); track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (admiteArticulo()) {
+      <label>Artículo
+        <select class="fp-input fp-select" [ngModel]="articuloId()" (ngModelChange)="articuloId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (a of articulos(); track a.id) { <option [value]="a.id">{{ a.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (admiteServicio()) {
+      <label>Servicio
+        <select class="fp-input fp-select" [ngModel]="servicioId()" (ngModelChange)="servicioId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (s of servicios(); track s.id) { <option [value]="s.id">{{ s.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (tipo() === 'compras') {
+      <label>Proveedor
+        <select class="fp-input fp-select" [ngModel]="proveedorId()" (ngModelChange)="proveedorId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (p of proveedores(); track p.id) { <option [value]="p.id">{{ p.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (tipo() === 'ingresos') {
+      <label>Método
+        <select class="fp-input fp-select" [ngModel]="metodoPagoId()" (ngModelChange)="metodoPagoId.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (m of metodos(); track m.id) { <option [value]="m.id">{{ m.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (estadosDisponibles().length) {
+      <label>Estado
+        <select class="fp-input fp-select" [ngModel]="estado()" (ngModelChange)="estado.set($event); cargarReporte()">
+          <option value="">Todos</option>
+          @for (e of estadosDisponibles(); track e) { <option [value]="e">{{ e }}</option> }
+        </select>
+      </label>
+    }
+    <label>Límite <input type="number" class="fp-input" min="1" max="10000" [ngModel]="limite()" (ngModelChange)="limite.set($event); cargarReporte()" /></label>
+  </section>
+
+  @if (error(); as mensaje) {
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarReporte()">Reintentar</button></div>
+  }
+
+  @if (reporte(); as r) {
+    <section class="resumen">
+      <article class="fp-tarjeta"><span>Generado</span><strong>{{ valorTexto(r.generadoUtc) }}</strong></article>
+      <article class="fp-tarjeta"><span>Registros</span><strong>{{ cantidad(r.totalRegistros) }}</strong></article>
+      <article class="fp-tarjeta"><span>Límite</span><strong>{{ cantidad(r.limite) }}</strong></article>
+      <article class="fp-tarjeta"><span>Estado</span><strong>{{ r.truncado ? 'Truncado' : 'Completo' }}</strong></article>
+    </section>
+
+    @if (r.totales.length) {
+      <section class="totales">
+        @for (t of r.totales; track t.nombre) {
+          <article class="fp-tarjeta"><span>{{ t.nombre }}</span><strong>{{ valorTotal(t) }}</strong></article>
+        }
+      </section>
+    }
+
+    <section class="fp-tarjeta tabla" [attr.aria-busy]="cargando()">
+      <div class="tabla__scroll">
+        <table>
+          <thead>
+            <tr>
+              @for (c of r.columnas; track c) { <th>{{ c }}</th> }
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of r.filas; track $index) {
+              <tr>
+                @for (c of r.columnas; track c) { <td>{{ valorFila(fila, c) }}</td> }
+              </tr>
+            } @empty {
+              <tr><td [attr.colspan]="r.columnas.length || 1" class="vacio">Sin filas para los filtros actuales.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else if (cargando()) {
+    <section class="fp-tarjeta cargando">Generando reporte...</section>
+  }
+</div>

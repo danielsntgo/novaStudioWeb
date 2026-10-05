@@ -1,0 +1,50 @@
+@if (cargando()) {
+  <p class="fp-texto-tenue">Cargando horario…</p>
+} @else if (errorCarga(); as mensaje) {
+  <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span></div>
+} @else {
+  <p class="intro">Define en qué horas atiende. Sin horario, el empleado no aparece disponible en la agenda.</p>
+
+  <div class="atajos">
+    <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" (click)="lunesAViernes()">Lunes a viernes, 9:00 – 18:00</button>
+    <button type="button" class="fp-enlace" (click)="limpiar()" [disabled]="totalTramos() === 0">Quitar todo</button>
+  </div>
+
+  @if (errorGuardar()) {
+    <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ errorGuardar() }}</span></div>
+  }
+
+  <ul class="dias">
+    @for (d of dias; track d.numero) {
+      <li class="dia" [class.libre]="tramosDe(d.numero).length === 0">
+        <div class="dia__cabecera">
+          <span class="dia__nombre">{{ d.nombre }}</span>
+          @if (tramosDe(d.numero).length === 0) { <span class="dia__estado">No trabaja</span> }
+        </div>
+        <div class="dia__tramos">
+          @for (t of tramosDe(d.numero); track $index; let i = $index) {
+            <div class="tramo">
+              <input type="time" class="fp-input" [ngModel]="t.inicio" (ngModelChange)="cambiar(d.numero, i, 'inicio', $event)" [attr.aria-label]="d.nombre + ': hora de inicio'" />
+              <span class="guion">a</span>
+              <input type="time" class="fp-input" [ngModel]="t.fin" (ngModelChange)="cambiar(d.numero, i, 'fin', $event)" [attr.aria-label]="d.nombre + ': hora de fin'" />
+              <button type="button" class="quitar" (click)="quitar(d.numero, i)" [attr.aria-label]="'Quitar horario del ' + d.nombre">
+                <svg app-icono="cerrar" [tamano]="16"></svg>
+              </button>
+            </div>
+          }
+          @if (problemas()[d.numero]; as problema) { <p class="fp-campo__error">{{ problema }}</p> }
+          <button type="button" class="fp-enlace agregar" (click)="agregar(d.numero)">
+            <svg app-icono="mas" [tamano]="14"></svg> {{ tramosDe(d.numero).length ? 'Agregar otro horario' : 'Agregar horario' }}
+          </button>
+        </div>
+      </li>
+    }
+  </ul>
+
+  <p class="aviso">Ojo: al cambiar el horario, el sistema no revisa las citas que ya existen. Verifica la agenda si reduces horas.</p>
+
+  <div class="acciones">
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="cerrar.emit()" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="fp-boton" [class.fp-cargando]="guardando()" [disabled]="!valido() || guardando()" (click)="guardar()">Guardar horario</button>
+  </div>
+}

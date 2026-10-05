@@ -1,0 +1,16 @@
+:host { display: block; }
+.cabecera { margin-bottom: 14px; }
+.horario { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 16px; background: var(--fp-azul-50); color: var(--fp-azul-900); margin-bottom: 16px; }
+.horario div { display: flex; flex-direction: column; }
+.horario strong { font-size: 16px; }
+.horario span { font-size: 14px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+dl { margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; }
+dl div { padding: 12px 14px; border-radius: 12px; background: #fff; border: 1px solid var(--fp-borde-suave); }
+dt { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-gris-500); }
+dd { margin: 2px 0 0; font-size: 15.5px; font-weight: 500; }
+h3 { font-size: 15px; font-weight: 650; margin-bottom: 10px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.acciones.fin { justify-content: flex-end; margin-top: 18px; }
+.final { font-size: 13.5px; color: var(--fp-texto-suave); padding: 10px 12px; background: var(--fp-gris-100); border-radius: 12px; }
+.intro { font-size: 14.5px; color: var(--fp-texto-suave); margin-bottom: 14px; }
+.selector { margin-top: 16px; }

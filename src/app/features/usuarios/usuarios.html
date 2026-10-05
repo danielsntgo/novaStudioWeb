@@ -1,0 +1,21 @@
+<app-lista-crud [config]="config" (creado)="alCrear($event)" />
+
+<app-dialogo [abierto]="credencial() !== null" titulo="Cuenta creada" [conCierre]="false" (cerrar)="credencial.set(null)">
+  @if (credencial(); as c) {
+    <p>Entrega estas credenciales a la persona. <strong>La contraseña temporal solo se muestra ahora</strong> y no se podrá consultar después.</p>
+    <dl class="datos">
+      <div><dt>Correo</dt><dd>{{ c.usuario.correo }}</dd></div>
+      <div>
+        <dt>Contraseña temporal</dt>
+        <dd class="clave"><code>{{ c.contrasenaTemporal }}</code></dd>
+      </div>
+    </dl>
+    <p class="nota">Al iniciar sesión por primera vez, el sistema le pedirá crear su propia contraseña.</p>
+  }
+  <div pie class="botones">
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="copiar()">
+      <svg [app-icono]="copiada() ? 'check' : 'copiar'" [tamano]="16"></svg> {{ copiada() ? 'Copiada' : 'Copiar contraseña' }}
+    </button>
+    <button type="button" class="fp-boton" (click)="credencial.set(null)">Listo</button>
+  </div>
+</app-dialogo>
