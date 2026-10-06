@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: flexpos-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist/flexpos-web/browser
+    autoDeployTrigger: commit
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://novabackend-3.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

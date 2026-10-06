@@ -47,10 +47,19 @@ docs/            prompt de trabajo del frontend
 
 ## Producción
 
-Edita `src/environments/environment.ts` con la URL pública de la API. Frontend y API deben
-compartir dominio (por ejemplo `app.midominio.com` y `api.midominio.com`) para que la cookie
-del refresh token funcione, y el origen del frontend debe estar en `Cors:OrigenesPermitidos`
-del backend.
+El frontend queda listo para Render Static Site con [`render.yaml`](render.yaml):
+
+```text
+Build Command: npm ci && npm run build
+Publish Directory: dist/flexpos-web/browser
+```
+
+`src/environments/environment.ts` deja `apiUrl` vacío para que las llamadas usen `/api`.
+Render reescribe `/api/*` hacia `https://novabackend-3.onrender.com/api/*` y `/*` hacia
+`/index.html` para soportar rutas internas de Angular.
+
+En el backend configure el origen publicado del frontend en `Cors__OrigenesPermitidos__0`.
+Si cambia la URL del backend, actualice también la regla `/api/*` de `render.yaml`.
 
 ## Estado
 
