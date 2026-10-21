@@ -180,7 +180,11 @@ td small {
 }
 
 .tabla-movimientos table {
-  min-width: 1000px;
+  min-width: 1100px;
+}
+
+.aviso-metodos {
+  margin-bottom: 16px;
 }
 
 .tabla-transferencias {

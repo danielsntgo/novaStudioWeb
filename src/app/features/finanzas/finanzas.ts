@@ -22,7 +22,7 @@ import { CajaPagina } from '../caja/caja';
 
 type Vista = 'caja' | 'cuentas' | 'movimientos' | 'transferencias' | 'metodos';
 type TipoCuenta = 'Efectivo' | 'Banco' | 'TarjetaCredito' | 'Billetera' | 'Otro';
-type Panel = { tipo: 'cuenta'; cuenta: CuentaFinanciera | null } | { tipo: 'transferencia' } | null;
+type Panel = { tipo: 'cuenta'; cuenta: CuentaFinanciera | null } | { tipo: 'transferencia' } | { tipo: 'movimiento' } | null;
 
 interface CuentaFinanciera {
   id: string;
@@ -84,6 +84,7 @@ const TIPOS_CUENTA: OpcionCampo[] = [
   { valor: 'Otro', etiqueta: 'Otro' },
 ];
 const TIPOS_MOVIMIENTO = [
+  'SaldoInicial',
   'PagoVenta',
   'Reembolso',
   'IngresoManual',
@@ -154,6 +155,7 @@ export class Finanzas implements OnInit {
   protected readonly tiposMovimiento = TIPOS_MOVIMIENTO;
   protected readonly etiquetaMovimiento = (tipo: string): string => {
     const etiquetas: Record<string, string> = {
+      SaldoInicial: 'Saldo inicial',
       PagoVenta: 'Pago de venta',
       Reembolso: 'Reembolso',
       IngresoManual: 'Ingreso manual',
@@ -169,6 +171,18 @@ export class Finanzas implements OnInit {
     return etiquetas[tipo] ?? tipo;
   };
   protected readonly cuentasActivas = computed(() => this.cuentasDisponibles().filter((cuenta) => cuenta.activa));
+  protected readonly metodosPagoActivos = signal<MetodoPago[]>([]);
+  protected readonly cargandoMetodosPago = signal(false);
+  protected readonly errorMetodosPago = signal<string | null>(null);
+  protected readonly opcionesMetodoPago = computed<OpcionCampo[]>(() => this.metodosPagoActivos()
+    .filter((metodo) => metodo.activo)
+    .map((metodo) => ({ valor: metodo.id, etiqueta: `${metodo.nombre} → ${metodo.cuentaFinancieraNombre}` })));
+  protected readonly camposMovimiento = computed<CampoForm[]>(() => [
+    { nombre: 'metodoPagoId', etiqueta: 'Método de pago', tipo: 'seleccion', requerido: true, opciones: this.opcionesMetodoPago() },
+    { nombre: 'sentido', etiqueta: 'Movimiento', tipo: 'seleccion', requerido: true, valorPorDefecto: 'Entrada', opciones: [{ valor: 'Entrada', etiqueta: 'Entrada de dinero' }, { valor: 'Salida', etiqueta: 'Salida de dinero' }] },
+    { nombre: 'importe', etiqueta: 'Importe', tipo: 'decimal', requerido: true, min: 0.01, paso: 0.01 },
+    { nombre: 'concepto', etiqueta: 'Concepto', tipo: 'texto', requerido: true, maximo: 250, marcador: 'Ej.: Recarga o retiro' },
+  ]);
   protected readonly opcionesOrigen = computed<OpcionCampo[]>(() => this.cuentasActivas()
     .filter((cuenta) => cuenta.tipo !== 'TarjetaCredito')
     .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${cuenta.tipo} · ${this.formato(cuenta.saldo, cuenta.codigoMoneda)}` })));
@@ -176,6 +190,7 @@ export class Finanzas implements OnInit {
     { nombre: 'nombre', etiqueta: 'Nombre de la cuenta', tipo: 'texto', requerido: true },
     { nombre: 'tipo', etiqueta: 'Tipo de cuenta', tipo: 'seleccion', requerido: true, opciones: TIPOS_CUENTA },
     { nombre: 'codigoMoneda', etiqueta: 'Moneda', tipo: 'texto', requerido: true, maximo: 3, mayusculas: true, deshabilitado: true, marcador: 'COP', ayuda: 'Moneda configurada para el negocio.' },
+    { nombre: 'saldoInicial', etiqueta: 'Saldo inicial / deuda inicial', tipo: 'decimal', min: 0, paso: 0.01, valorPorDefecto: 0, visibleSi: () => { const panel = this.panel(); return panel?.tipo === 'cuenta' && !panel.cuenta; }, ayuda: 'Se registra como saldo de apertura y queda en el historial de la cuenta. En tarjetas de crédito representa la deuda inicial.' },
     { nombre: 'entidad', etiqueta: 'Entidad financiera', tipo: 'texto' },
     { nombre: 'ultimosDigitos', etiqueta: 'Últimos dígitos', tipo: 'texto', maximo: 4, ayuda: 'Opcional; no ingreses el número completo.' },
     { nombre: 'cupoCredito', etiqueta: 'Cupo de crédito', tipo: 'decimal', min: 0, visibleSi: (valor) => valor['tipo'] === 'TarjetaCredito', ayuda: 'Opcional. Limita el saldo de deuda permitido.' },
@@ -258,11 +273,31 @@ export class Finanzas implements OnInit {
     this.cargarResumen();
     this.cargarCuentas();
     this.cargarCuentasDisponibles();
+    this.cargarMetodosPago();
     this.http.get<{ codigoMoneda?: string }>('/api/configuracion', { context: SILENCIO() }).pipe(catchError(() => of({} as { codigoMoneda?: string }))).subscribe({
       next: (configuracion) => {
         if (configuracion.codigoMoneda) this.monedaNegocio.set(configuracion.codigoMoneda);
       },
     });
+  }
+
+  protected cargarMetodosPago(): void {
+    this.cargandoMetodosPago.set(true);
+    this.errorMetodosPago.set(null);
+    this.http.get<MetodoPago[]>('/api/configuracion/metodos-pago', { context: SILENCIO() }).subscribe({
+      next: (metodos) => {
+        this.metodosPagoActivos.set(Array.isArray(metodos) ? metodos : []);
+        this.cargandoMetodosPago.set(false);
+      },
+      error: (error: unknown) => {
+        this.cargandoMetodosPago.set(false);
+        this.errorMetodosPago.set(mensajeDeError(error, 'No se pudieron cargar los métodos de pago.'));
+      },
+    });
+  }
+
+  protected nombreMetodoPago(id: string | null): string {
+    return this.metodosPagoActivos().find((metodo) => metodo.id === id)?.nombre ?? '—';
   }
 
   private cargarCuentasDisponibles(): void {
@@ -354,14 +389,22 @@ export class Finanzas implements OnInit {
     this.panel.set({ tipo: 'transferencia' });
   }
 
+  protected abrirMovimientoManual(): void {
+    this.reiniciarEnvio();
+    this.panel.set({ tipo: 'movimiento' });
+    this.cargarMetodosPago();
+  }
+
   protected tituloPanel(): string {
     const panel = this.panel();
     if (panel?.tipo === 'transferencia') return 'Nueva transferencia';
+    if (panel?.tipo === 'movimiento') return 'Registrar movimiento';
     if (panel?.tipo === 'cuenta') return panel.cuenta ? 'Editar cuenta' : 'Nueva cuenta';
     return '';
   }
 
   protected subtituloPanel(): string {
+    if (this.panel()?.tipo === 'movimiento') return 'El método seleccionado determina la cuenta financiera que cambia.';
     return '';
   }
 
@@ -399,6 +442,24 @@ export class Finanzas implements OnInit {
           this.cargarCuentasDisponibles();
         },
         error: (error: unknown) => this.manejarErrorEnvio(error, 'No se pudo guardar la cuenta.'),
+      });
+      return;
+    }
+
+    if (panel.tipo === 'movimiento') {
+      this.http.post<MovimientoFinanciero>('/api/finanzas/movimientos', valor, { context: SILENCIO() }).subscribe({
+        next: (movimiento) => {
+          this.enviando.set(false);
+          this.panel.set(null);
+          const metodo = this.metodosPagoActivos().find((item) => item.id === movimiento.metodoPagoId);
+          if (metodo) this.cuentaLibroId.set(metodo.cuentaFinancieraId);
+          this.notificaciones.exito('El movimiento se registró en la cuenta asociada al método de pago.');
+          this.cargarResumen();
+          this.cargarCuentas();
+          this.cargarCuentasDisponibles();
+          if (this.vista() === 'movimientos') this.cargarMovimientos();
+        },
+        error: (error: unknown) => this.manejarErrorEnvio(error, 'No se pudo registrar el movimiento.'),
       });
       return;
     }

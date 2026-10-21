@@ -16,6 +16,8 @@
       <button type="button" class="fp-boton" (click)="abrirNuevaCuenta()"><svg app-icono="mas" [tamano]="16"></svg> Nueva cuenta</button>
     } @else if (esAdmin() && vista() === 'transferencias') {
       <button type="button" class="fp-boton" (click)="abrirTransferencia()" [disabled]="opcionesOrigen().length === 0 || cuentasActivas().length < 2"><svg app-icono="mas" [tamano]="16"></svg> Nueva transferencia</button>
+    } @else if (esAdmin() && vista() === 'movimientos') {
+      <button type="button" class="fp-boton" (click)="abrirMovimientoManual()" [disabled]="cargandoMetodosPago() || opcionesMetodoPago().length === 0"><svg app-icono="mas" [tamano]="16"></svg> Registrar entrada o salida</button>
     }
   </header>
 
@@ -87,6 +89,11 @@
     }
 
     @if (vista() === 'movimientos') {
+      @if (errorMetodosPago(); as mensaje) {
+        <div class="fp-alerta error" role="alert"><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarMetodosPago()">Reintentar</button></div>
+      } @else if (!cargandoMetodosPago() && opcionesMetodoPago().length === 0) {
+        <section class="fp-tarjeta estado-vacio aviso-metodos"><h2>Asigna una cuenta a tus métodos de pago</h2><p>Al registrar un movimiento, la cuenta se determina automáticamente según el método elegido.</p><button type="button" class="fp-boton" (click)="cambiarVista('metodos')">Configurar métodos de pago</button></section>
+      }
       @if (cuentasActivas().length > 0) {
         <form class="filtros fp-tarjeta filtros-movimientos" (ngSubmit)="paginaMovimientos.set(1); cargarMovimientos()">
           <label>Cuenta
@@ -110,13 +117,13 @@
         @if (errorMovimientos(); as mensaje) { <div class="fp-alerta error" role="alert"><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarMovimientos()">Reintentar</button></div> }
         <section class="fp-tarjeta tabla tabla-movimientos" [attr.aria-busy]="cargandoMovimientos()">
           <div class="tabla__scroll"><table>
-            <thead><tr><th>Fecha</th><th>Movimiento</th><th>Sentido</th><th>Importe</th><th>Saldo posterior</th><th>Origen</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Movimiento</th><th>Sentido</th><th>Método de pago</th><th>Importe</th><th>Saldo posterior</th><th>Origen</th></tr></thead>
             <tbody>
               @for (movimiento of movimientos(); track movimiento.id) {
-                <tr><td>{{ fechaHora(movimiento.fechaUtc) }}</td><td>{{ etiquetaMovimiento(movimiento.tipo) }}<small>{{ movimiento.concepto || (movimiento.migrado ? 'Importado de historial anterior' : '') }}</small></td><td><span class="sentido" [class.salida]="movimiento.sentido === 'Salida'">{{ movimiento.sentido }}</span></td><td class="importe">{{ formato(movimiento.importe, movimiento.codigoMoneda) }}</td><td class="importe">{{ formato(movimiento.saldoPosterior, movimiento.codigoMoneda) }}</td><td>{{ movimiento.migrado ? 'Migrado' : movimiento.ventaId ? 'Venta' : movimiento.transferenciaFinancieraId ? 'Transferencia' : movimiento.cajaId ? 'Caja' : '—' }}</td></tr>
+                <tr><td>{{ fechaHora(movimiento.fechaUtc) }}</td><td>{{ etiquetaMovimiento(movimiento.tipo) }}<small>{{ movimiento.concepto || (movimiento.migrado ? 'Importado de historial anterior' : '') }}</small></td><td><span class="sentido" [class.salida]="movimiento.sentido === 'Salida'">{{ movimiento.sentido }}</span></td><td>{{ nombreMetodoPago(movimiento.metodoPagoId) }}</td><td class="importe">{{ formato(movimiento.importe, movimiento.codigoMoneda) }}</td><td class="importe">{{ formato(movimiento.saldoPosterior, movimiento.codigoMoneda) }}</td><td>{{ movimiento.migrado ? 'Migrado' : movimiento.ventaId ? 'Venta' : movimiento.transferenciaFinancieraId ? 'Transferencia' : movimiento.cajaId ? 'Caja' : '—' }}</td></tr>
               } @empty {
-                @if (!cargandoMovimientos()) { <tr><td colspan="6" class="vacio">No hay movimientos para los filtros seleccionados.</td></tr> }
-                @else { <tr><td colspan="6" class="vacio">Cargando movimientos…</td></tr> }
+                @if (!cargandoMovimientos()) { <tr><td colspan="7" class="vacio">No hay movimientos para los filtros seleccionados.</td></tr> }
+                @else { <tr><td colspan="7" class="vacio">Cargando movimientos…</td></tr> }
               }
             </tbody>
           </table></div>
@@ -167,6 +174,16 @@
     <app-panel-lateral [abierto]="true" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" (cerrar)="cerrarPanel()">
       @if (p.tipo === 'cuenta') {
         <app-formulario-dinamico [campos]="camposCuenta" [valorInicial]="valorInicialCuenta()" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" [textoGuardar]="p.cuenta ? 'Guardar cambios' : 'Crear cuenta'" (guardar)="guardarFormulario($event)" (cancelar)="cerrarPanel()" />
+      } @else if (p.tipo === 'movimiento') {
+        <p class="nota">El saldo se aplica a la cuenta configurada para el método. Para efectivo, debe haber una caja abierta; los demás métodos actualizan su cuenta directamente.</p>
+        @if (errorMetodosPago(); as mensaje) { <div class="fp-alerta error" role="alert"><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarMetodosPago()">Reintentar</button></div> }
+        @if (cargandoMetodosPago()) {
+          <p class="nota">Cargando métodos de pago…</p>
+        } @else if (!opcionesMetodoPago().length) {
+          <section class="estado-vacio"><h2>Configura primero un método de pago</h2><p>Asocia cada método con la cuenta financiera que debe recibir sus movimientos.</p><button type="button" class="fp-boton" (click)="cerrarPanel(); cambiarVista('metodos')">Ir a métodos de pago</button></section>
+        } @else {
+          <app-formulario-dinamico [campos]="camposMovimiento()" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" textoGuardar="Registrar movimiento" (guardar)="guardarFormulario($event)" (cancelar)="cerrarPanel()" />
+        }
       } @else {
         <p class="nota">La transferencia registra la salida y la entrada en el historial de ambas cuentas. La fecha se asigna al momento del registro.</p>
         <app-formulario-dinamico [campos]="camposTransferencia()" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" textoGuardar="Registrar transferencia" (guardar)="guardarFormulario($event)" (cancelar)="cerrarPanel()" />
