@@ -1,7 +1,7 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { EMPTY, expand, forkJoin, map, reduce } from 'rxjs';
+import { EMPTY, TimeoutError, expand, finalize, forkJoin, map, reduce, timeout } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
 import { Pagina, normalizarPagina, numero, parametros } from '../../core/api/paginas';
@@ -381,17 +381,20 @@ export class Comisiones implements OnInit {
           ? this.http.put(`/api/comisiones/reglas/${p.regla.id}`, { tipo: valor['tipo'], valor: valor['valor'] }, { context: SILENCIO() })
           : this.http.post('/api/comisiones/reglas/lote', valor, { context: SILENCIO() });
 
-    peticion.subscribe({
+    peticion.pipe(
+      timeout({ first: 90_000 }),
+      finalize(() => this.enviando.set(false)),
+    ).subscribe({
       next: () => {
-        this.enviando.set(false);
         this.panel.set(null);
         if (p.tipo === 'liquidacion') this.seleccionados.set(new Set());
         this.notificaciones.exito(p.tipo === 'liquidacion' ? 'Liquidación creada correctamente.' : p.regla ? 'Regla guardada correctamente.' : 'Reglas creadas correctamente.');
         this.cargarTodo();
       },
       error: (err: unknown) => {
-        this.enviando.set(false);
-        this.errorEnvio.set(mensajeDeError(err, 'No se pudo guardar.'));
+        this.errorEnvio.set(err instanceof TimeoutError
+          ? 'El servidor no respondió en 90 segundos. Revisa la lista de reglas antes de volver a intentarlo.'
+          : mensajeDeError(err, 'No se pudo guardar.'));
       },
     });
   }
