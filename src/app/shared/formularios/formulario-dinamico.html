@@ -64,8 +64,8 @@
             }
             @if (mensajeError(campo); as mensaje) {
               <span class="fp-campo__error">{{ mensaje }}</span>
-            } @else if (campo.ayuda) {
-              <span class="ayuda">{{ campo.ayuda }}</span>
+            } @else if (ayuda(campo); as mensajeAyuda) {
+              <span class="ayuda">{{ mensajeAyuda }}</span>
             }
           }
         </div>

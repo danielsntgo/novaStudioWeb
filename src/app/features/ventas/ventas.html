@@ -197,14 +197,24 @@
           </div>
         </div>
         <div class="mini-totales">
-          <span>Pagado <b>{{ formatoMoneda(p.venta.totalPagado, p.venta.codigoMoneda) }}</b></span>
-          <span>Pendiente <b>{{ formatoMoneda(p.venta.totalPendiente, p.venta.codigoMoneda) }}</b></span>
-          <span>Impuestos <b>{{ formatoMoneda(p.venta.impuestos, p.venta.codigoMoneda) }}</b></span>
+          <span>Pagos recibidos <b>{{ formatoMoneda(p.venta.totalPagado, p.venta.codigoMoneda) }}</b></span>
+          <span>Valor devuelto <b>{{ formatoMoneda(p.venta.totalDevuelto, p.venta.codigoMoneda) }}</b></span>
+          <span>Dinero reintegrado <b>{{ formatoMoneda(p.venta.totalReintegrado, p.venta.codigoMoneda) }}</b></span>
+          <span>Saldo pendiente <b>{{ formatoMoneda(p.venta.totalPendiente, p.venta.codigoMoneda) }}</b></span>
         </div>
+        @if (p.venta.estado === 'Anulada') {
+          <div class="fp-alerta aviso" role="status">
+            <span>
+              Venta anulada
+              @if (p.venta.fechaAnulacionUtc) { · {{ formatearFechaHora(p.venta.fechaAnulacionUtc) }} }
+              @if (p.venta.motivoAnulacion) { · {{ p.venta.motivoAnulacion }} }
+            </span>
+          </div>
+        }
         <h4>Líneas</h4>
         <div class="lista-detalle">
           @for (l of p.venta.lineas; track l.id) {
-            <article><span>{{ l.nombre }} · {{ formatearCantidad(l.cantidad) }} {{ l.unidad }}</span><b>{{ formatoMoneda(l.totalImporte, p.venta.codigoMoneda) }}</b></article>
+            <article><span>{{ l.nombre }} · {{ formatearCantidad(l.cantidad) }} {{ l.unidad }} · disponibles para devolución: {{ formatearCantidad(cantidadPendiente(p.venta, l)) }}</span><b>{{ formatoMoneda(l.totalImporte, p.venta.codigoMoneda) }}</b></article>
           }
         </div>
         <h4>Pagos</h4>
@@ -215,6 +225,37 @@
             <p class="fp-texto-tenue">Sin pagos registrados.</p>
           }
         </div>
+        @if (p.venta.devoluciones.length > 0) {
+          <h4>Historial de devoluciones</h4>
+          <div class="historial-devoluciones">
+            @for (devolucion of p.venta.devoluciones; track devolucion.id) {
+              <article class="historial-devolucion">
+                <header>
+                  <strong>{{ devolucion.motivo }}</strong>
+                  <time>{{ formatearFechaHora(devolucion.fechaUtc) }}</time>
+                </header>
+                <div class="historial-importes">
+                  <span>Valor de líneas: {{ formatoMoneda(devolucion.importeLineas, p.venta.codigoMoneda) }}</span>
+                  <span>Dinero reintegrado: {{ formatoMoneda(devolucion.importeReintegrado, p.venta.codigoMoneda) }}</span>
+                </div>
+                <ul>
+                  @for (linea of devolucion.lineas; track linea.detalleVentaId) {
+                    <li>{{ nombreLinea(p.venta, linea.detalleVentaId) }} · {{ formatearCantidad(linea.cantidad) }} · {{ formatoMoneda(linea.importe, p.venta.codigoMoneda) }}</li>
+                  }
+                </ul>
+                @if (devolucion.pagos.length > 0) {
+                  <div class="historial-pagos">
+                    @for (reintegro of devolucion.pagos; track $index) {
+                      <span>{{ reintegro.metodoPagoNombre }} · {{ formatoMoneda(reintegro.importe, p.venta.codigoMoneda) }}@if (reintegro.referencia) { · {{ reintegro.referencia }} }</span>
+                    }
+                  </div>
+                } @else {
+                  <p class="fp-texto-tenue">No hubo dinero por reintegrar; el saldo pendiente se ajustó al valor conservado.</p>
+                }
+              </article>
+            }
+          </div>
+        }
         <div class="acciones-detalle acciones-detalle--abajo">
           @if (p.venta.estado !== 'Anulada' && p.venta.estado !== 'Devuelta') {
             <button type="button" class="fp-boton fp-boton--secundario" (click)="abrirAccion('pago', p.venta)" [disabled]="valorNumerico(p.venta.totalPendiente) <= 0">Agregar pago</button>

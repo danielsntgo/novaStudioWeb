@@ -126,6 +126,7 @@ interface PagoEditable {
 interface LineaVentaDto {
   id: string;
   tipo: string;
+  manejaFraccion: boolean;
   nombre: string;
   unidad: string;
   cantidad: number | string;
@@ -146,6 +147,28 @@ interface PagoVentaDto {
   fechaUtc: string;
 }
 
+interface LineaDevolucionDto {
+  detalleVentaId: string;
+  cantidad: number | string;
+  importe: number | string;
+}
+
+interface PagoDevolucionDto {
+  metodoPagoNombre: string;
+  importe: number | string;
+  referencia?: string | null;
+}
+
+interface DevolucionVentaDto {
+  id: string;
+  fechaUtc: string;
+  motivo: string;
+  importeLineas: number | string;
+  importeReintegrado: number | string;
+  lineas: LineaDevolucionDto[];
+  pagos: PagoDevolucionDto[];
+}
+
 interface Venta {
   id: string;
   clienteId?: string | null;
@@ -158,11 +181,14 @@ interface Venta {
   impuestos: number | string;
   total: number | string;
   totalPagado: number | string;
+  totalDevuelto: number | string;
   totalPendiente: number | string;
   totalReintegrado: number | string;
   motivoAnulacion?: string | null;
+  fechaAnulacionUtc?: string | null;
   lineas: LineaVentaDto[];
   pagos: PagoVentaDto[];
+  devoluciones: DevolucionVentaDto[];
   documentos: DocumentoVentaDto[];
 }
 
@@ -339,7 +365,16 @@ export class Ventas implements OnInit {
 
   protected readonly opcionesClientes = computed<OpcionCampo[]>(() => this.clientes().map((c) => ({ valor: c.id, etiqueta: c.nombre })));
   protected readonly opcionesMetodos = computed<OpcionCampo[]>(() => this.metodosPago().map((m) => ({ valor: m.id, etiqueta: m.nombre })));
-  protected readonly opcionesLineas = computed<OpcionCampo[]>(() => this.ventaPanel()?.lineas.map((l) => ({ valor: l.id, etiqueta: `${l.nombre} · ${formatearCantidad(l.cantidad)}` })) ?? []);
+  protected readonly opcionesLineas = computed<OpcionCampo[]>(() => {
+    const venta = this.ventaPanel();
+    if (!venta) return [];
+    return venta.lineas.flatMap((linea) => {
+      const pendiente = this.cantidadPendiente(venta, linea);
+      return pendiente > 0
+        ? [{ valor: linea.id, etiqueta: `${linea.nombre} · disponibles: ${formatearCantidad(pendiente)} ${linea.unidad}` }]
+        : [];
+    });
+  });
 
   protected readonly tituloPanel = computed(() => {
     const p = this.panel();
@@ -355,10 +390,45 @@ export class Ventas implements OnInit {
   protected readonly camposAccion = computed<CampoForm[]>(() => {
     const p = this.panel();
     if (!p || p.tipo === 'detalle') return [];
+    const esDevolucion = p.tipo !== 'pago';
+    const reintegroEsperado = (valor: Record<string, unknown>) => {
+      if (p.tipo === 'anular') return this.calcularReintegro(p.venta, this.importeLineasPendientes(p.venta));
+      if (p.tipo === 'devolucion') return this.previsualizarDevolucion(p.venta, valor).reintegro;
+      return 0;
+    };
+    const mostrarReintegro = (valor: Record<string, unknown>) => reintegroEsperado(valor) > 0;
     const pago: CampoForm[] = [
-      { nombre: 'metodoPagoId', etiqueta: 'Método de pago', tipo: 'seleccion', requerido: true, opciones: this.opcionesMetodos() },
-      { nombre: 'importe', etiqueta: p.tipo === 'pago' ? 'Importe abonado' : 'Importe a reintegrar', tipo: 'decimal', requerido: p.tipo === 'pago', min: 0 },
-      { nombre: 'referencia', etiqueta: 'Referencia', tipo: 'texto' },
+      {
+        nombre: 'metodoPagoId',
+        etiqueta: esDevolucion ? 'Método de reintegro' : 'Método de pago',
+        tipo: 'seleccion',
+        requerido: true,
+        opciones: this.opcionesMetodos(),
+        visibleSi: esDevolucion ? mostrarReintegro : undefined,
+      },
+      {
+        nombre: 'importe',
+        etiqueta: p.tipo === 'pago' ? 'Importe abonado' : 'Importe a reintegrar',
+        tipo: 'decimal',
+        requerido: true,
+        min: 0.01,
+        paso: 0.01,
+        visibleSi: esDevolucion ? mostrarReintegro : undefined,
+        ayudaSegun: esDevolucion
+          ? (valor) => `El reintegro exacto calculado es ${formatearMoneda(reintegroEsperado(valor), p.venta.codigoMoneda)}.`
+          : undefined,
+      },
+      {
+        nombre: 'referencia',
+        etiqueta: 'Referencia',
+        tipo: 'texto',
+        visibleSi: esDevolucion ? mostrarReintegro : undefined,
+        ayudaSegun: esDevolucion
+          ? (valor) => this.metodosPago().find((metodo) => metodo.id === String(valor['metodoPagoId'] ?? ''))?.requiereReferencia
+            ? 'El método seleccionado requiere una referencia.'
+            : null
+          : undefined,
+      },
     ];
     if (p.tipo === 'pago') return pago;
     const motivo: CampoForm = { nombre: 'motivo', etiqueta: 'Motivo', tipo: 'area', requerido: true, maximo: 250 };
@@ -366,7 +436,20 @@ export class Ventas implements OnInit {
     return [
       motivo,
       { nombre: 'detalleVentaId', etiqueta: 'Línea a devolver', tipo: 'seleccion', requerido: true, opciones: this.opcionesLineas() },
-      { nombre: 'cantidad', etiqueta: 'Cantidad', tipo: 'decimal', requerido: true, min: 0 },
+      {
+        nombre: 'cantidad',
+        etiqueta: 'Cantidad a devolver',
+        tipo: 'decimal',
+        requerido: true,
+        min: 0.001,
+        paso: 0.001,
+        ayudaSegun: (valor) => {
+          const estimacion = this.previsualizarDevolucion(p.venta, valor);
+          return estimacion.importeLineas > 0
+            ? `Valor de las unidades: ${formatearMoneda(estimacion.importeLineas, p.venta.codigoMoneda)} · Reintegro: ${formatearMoneda(estimacion.reintegro, p.venta.codigoMoneda)}.`
+            : 'El reintegro se calcula según lo cobrado y el valor de las unidades devueltas.';
+        },
+      },
       ...pago,
     ];
   });
@@ -592,9 +675,102 @@ export class Ventas implements OnInit {
     this.panel.set(null);
   }
 
-  protected guardarAccion(valor: Record<string, unknown>): void {
+  protected cantidadPendiente(venta: Venta, linea: LineaVentaDto): number {
+    const devuelta = venta.devoluciones
+      .flatMap((devolucion) => devolucion.lineas)
+      .filter((detalle) => detalle.detalleVentaId === linea.id)
+      .reduce((suma, detalle) => suma + numero(detalle.cantidad), 0);
+    return Math.max(0, numero(linea.cantidad) - devuelta);
+  }
+
+  private importePendienteLinea(venta: Venta, linea: LineaVentaDto): number {
+    const devuelto = venta.devoluciones
+      .flatMap((devolucion) => devolucion.lineas)
+      .filter((detalle) => detalle.detalleVentaId === linea.id)
+      .reduce((suma, detalle) => suma + numero(detalle.importe), 0);
+    return Math.max(0, numero(linea.totalImporte) - devuelto);
+  }
+
+  private importeLineasPendientes(venta: Venta): number {
+    return venta.lineas.reduce((suma, linea) => suma + this.importePendienteLinea(venta, linea), 0);
+  }
+
+  private calcularReintegro(venta: Venta, importeLineasDevueltas: number): number {
+    const valorConservado = Math.max(0, numero(venta.total) - numero(venta.totalDevuelto) - importeLineasDevueltas);
+    const reintegro = Math.max(0, numero(venta.totalPagado) - numero(venta.totalReintegrado) - valorConservado);
+    return Math.round((reintegro + Number.EPSILON) * 100) / 100;
+  }
+
+  private previsualizarDevolucion(
+    venta: Venta,
+    valor: Record<string, unknown>,
+  ): { importeLineas: number; reintegro: number } {
+    const idLinea = String(valor['detalleVentaId'] ?? '');
+    const cantidad = numero(valor['cantidad'] as number | string | null | undefined);
+    const linea = venta.lineas.find((x) => x.id === idLinea);
+    if (!linea || cantidad <= 0 || cantidad > this.cantidadPendiente(venta, linea)) {
+      return { importeLineas: 0, reintegro: 0 };
+    }
+
+    const cantidadPendiente = this.cantidadPendiente(venta, linea);
+    const importePendiente = this.importePendienteLinea(venta, linea);
+    const importeLineas = cantidad === cantidadPendiente
+      ? importePendiente
+      : Math.min(importePendiente, Math.round((numero(linea.totalImporte) * cantidad / numero(linea.cantidad) + Number.EPSILON) * 100) / 100);
+    return { importeLineas, reintegro: this.calcularReintegro(venta, importeLineas) };
+  }
+
+  protected nombreLinea(venta: Venta, id: string): string {
+    return venta.lineas.find((linea) => linea.id === id)?.nombre ?? 'Línea de venta';
+  }
+
+  protected async guardarAccion(valor: Record<string, unknown>): Promise<void> {
     const p = this.panel();
     if (!p || p.tipo === 'detalle' || this.enviandoAccion()) return;
+
+    if (p.tipo !== 'pago') {
+      let importeLineas = this.importeLineasPendientes(p.venta);
+      if (p.tipo === 'devolucion') {
+        const linea = p.venta.lineas.find((x) => x.id === String(valor['detalleVentaId'] ?? ''));
+        const cantidad = numero(valor['cantidad'] as number | string | null | undefined);
+        if (!linea || cantidad <= 0 || cantidad > this.cantidadPendiente(p.venta, linea)) {
+          this.errorAccion.set('Selecciona una línea con unidades pendientes y una cantidad disponible para devolver.');
+          return;
+        }
+        if ((linea.tipo === 'Servicio' || !linea.manejaFraccion) && !Number.isInteger(cantidad)) {
+          this.errorAccion.set('La cantidad de esta línea debe ser un número entero.');
+          return;
+        }
+        importeLineas = this.previsualizarDevolucion(p.venta, valor).importeLineas;
+      }
+
+      const reintegroEsperado = this.calcularReintegro(p.venta, importeLineas);
+      const pagoCapturado = this.pagoDesdeValor(valor);
+      if (Math.round(pagoCapturado.importe * 100) !== Math.round(reintegroEsperado * 100)) {
+        this.errorAccion.set(`El reintegro debe ser exactamente ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)} según lo cobrado y las unidades devueltas.`);
+        return;
+      }
+      if (reintegroEsperado > 0 && !pagoCapturado.metodoPagoId) {
+        this.errorAccion.set('Selecciona el método con el que se pagará el reintegro.');
+        return;
+      }
+      const metodoReintegro = this.metodosPago().find((metodo) => metodo.id === pagoCapturado.metodoPagoId);
+      if (reintegroEsperado > 0 && metodoReintegro?.requiereReferencia && !pagoCapturado.referencia) {
+        this.errorAccion.set('El método seleccionado requiere una referencia para registrar el reintegro.');
+        return;
+      }
+
+      const aceptado = await this.confirmacion.confirmar({
+        titulo: p.tipo === 'anular' ? '¿Anular toda la venta?' : '¿Registrar esta devolución?',
+        mensaje: p.tipo === 'anular'
+          ? `Se devolverán todas las unidades pendientes, se ajustará inventario y comisiones, y se registrará un reintegro de ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)}. Esta operación no borra la venta ni sus pagos.`
+          : `Se registrará la devolución por ${formatearMoneda(importeLineas, p.venta.codigoMoneda)}, se actualizarán inventario y comisiones, y se reintegrarán ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)}.`,
+        textoAceptar: p.tipo === 'anular' ? 'Anular venta' : 'Registrar devolución',
+        peligro: true,
+      });
+      if (!aceptado) return;
+    }
+
     this.enviandoAccion.set(true);
     this.errorAccion.set(null);
     const pago = this.pagoDesdeValor(valor);

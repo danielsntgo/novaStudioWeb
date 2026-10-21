@@ -220,7 +220,7 @@
 
 .mini-totales {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -242,6 +242,39 @@
 
 .lista-detalle b {
   white-space: nowrap;
+}
+
+.historial-devoluciones {
+  display: grid;
+  gap: 12px;
+}
+
+.historial-devolucion {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--fp-borde-suave);
+  border-radius: 12px;
+  background: var(--fp-gris-50);
+}
+
+.historial-devolucion header,
+.historial-importes,
+.historial-pagos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.historial-devolucion time,
+.historial-devolucion p {
+  color: var(--fp-texto-suave);
+}
+
+.historial-devolucion ul {
+  margin: 0;
+  padding-left: 20px;
 }
 
 @media (max-width: 980px) {

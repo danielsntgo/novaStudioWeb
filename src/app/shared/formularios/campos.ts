@@ -17,6 +17,8 @@ export interface CampoForm {
   opciones?: OpcionCampo[];
   /** Opciones de selección que dependen de otros valores del mismo formulario. */
   opcionesSegun?: (valor: Record<string, unknown>) => OpcionCampo[];
+  /** Texto de ayuda que puede cambiar según los demás valores del formulario. */
+  ayudaSegun?: (valor: Record<string, unknown>) => string | null;
   marcador?: string;
   ayuda?: string;
   ancho?: 'completo' | 'medio';

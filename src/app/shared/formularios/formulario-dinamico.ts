@@ -100,6 +100,11 @@ export class FormularioDinamico {
     return campo.opcionesSegun?.(this.formulario().getRawValue()) ?? campo.opciones ?? [];
   }
 
+  protected ayuda(campo: CampoForm): string | null {
+    this.cambios();
+    return campo.ayudaSegun?.(this.formulario().getRawValue()) ?? campo.ayuda ?? null;
+  }
+
   protected opcionSeleccionada(campo: CampoForm, valor: string): boolean {
     const seleccion = this.formulario().controls[campo.nombre].value;
     return Array.isArray(seleccion) && seleccion.includes(valor);
