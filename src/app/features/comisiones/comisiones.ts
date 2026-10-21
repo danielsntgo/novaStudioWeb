@@ -189,7 +189,7 @@ export class Comisiones implements OnInit {
     if (p?.tipo === 'regla') {
       const base: CampoForm[] = [
         { nombre: 'tipo', etiqueta: 'Tipo de tarifa', tipo: 'seleccion', requerido: true, opciones: [{ valor: 'Porcentaje', etiqueta: 'Porcentaje' }, { valor: 'ValorFijo', etiqueta: 'Valor fijo' }] },
-        { nombre: 'valor', etiqueta: 'Valor', tipo: 'decimal', requerido: true, min: 0 },
+        { nombre: 'valor', etiqueta: 'Valor', tipo: 'decimal', requerido: true, min: 0.01 },
       ];
       if (p.regla) return base;
       return [
@@ -392,9 +392,11 @@ export class Comisiones implements OnInit {
         this.cargarTodo();
       },
       error: (err: unknown) => {
-        this.errorEnvio.set(err instanceof TimeoutError
+        const mensaje = err instanceof TimeoutError
           ? 'El servidor no respondió en 90 segundos. Revisa la lista de reglas antes de volver a intentarlo.'
-          : mensajeDeError(err, 'No se pudo guardar.'));
+          : mensajeDeError(err, 'No se pudo guardar.');
+        this.errorEnvio.set(mensaje);
+        this.notificaciones.error(mensaje);
       },
     });
   }
