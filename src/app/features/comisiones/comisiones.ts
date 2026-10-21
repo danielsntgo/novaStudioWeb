@@ -1,7 +1,8 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, map } from 'rxjs';
+import { EMPTY, expand, forkJoin, map, reduce } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
 import { Pagina, normalizarPagina, numero, parametros } from '../../core/api/paginas';
 import { mensajeDeError } from '../../core/api/problema';
@@ -193,7 +194,7 @@ export class Comisiones implements OnInit {
       if (p.regla) return base;
       return [
         { nombre: 'empleadoId', etiqueta: 'Empleado', tipo: 'seleccion', requerido: true, opciones: this.opcionesEmpleados() },
-        { nombre: 'servicioId', etiqueta: 'Servicio', tipo: 'seleccion', requerido: true, opciones: this.opcionesServicios() },
+        { nombre: 'servicioIds', etiqueta: 'Servicios', tipo: 'seleccion-multiple', requerido: true, maximo: 200, ayuda: 'Selecciona hasta 200 servicios para aplicarles la misma tarifa.', opciones: this.opcionesServicios() },
         ...base,
       ];
     }
@@ -213,7 +214,7 @@ export class Comisiones implements OnInit {
   protected cargarCatalogos(): void {
     forkJoin({
       empleados: this.lista<Empleado>('/api/empleados', { activo: true, tamanoPagina: 100 }),
-      servicios: this.lista<Servicio>('/api/servicios/administracion', { activo: true, tamanoPagina: 100 }),
+      servicios: this.listaCompleta<Servicio>('/api/servicios/administracion', { activo: true }),
       metodos: this.lista<MetodoPago>('/api/configuracion/metodos-pago', {}),
     }).subscribe({
       next: (r) => {
@@ -226,6 +227,18 @@ export class Comisiones implements OnInit {
 
   private lista<T>(url: string, filtros: Record<string, string | number | boolean>) {
     return this.http.get<unknown>(url, { context: SILENCIO(), params: parametros(filtros) }).pipe(map((r) => normalizarPagina<T>(r, 100).elementos));
+  }
+
+  private listaCompleta<T>(url: string, filtros: Record<string, string | number | boolean>): Observable<T[]> {
+    const obtenerPagina = (pagina: number) => this.http.get<unknown>(url, {
+      context: SILENCIO(),
+      params: parametros({ ...filtros, pagina, tamanoPagina: 100 }),
+    }).pipe(map((respuesta) => normalizarPagina<T>(respuesta, 100)));
+
+    return obtenerPagina(1).pipe(
+      expand((pagina) => pagina.pagina * pagina.tamanoPagina < pagina.total ? obtenerPagina(pagina.pagina + 1) : EMPTY),
+      reduce((resultado, pagina) => [...resultado, ...pagina.elementos], [] as T[]),
+    );
   }
 
   protected cargarTodo(): void {
@@ -366,14 +379,14 @@ export class Comisiones implements OnInit {
         ? this.http.post('/api/comisiones/liquidaciones', { comisionIds: [...this.seleccionados()], metodoPagoId: valor['metodoPagoId'], referencia: valor['referencia'] ?? null }, { context: SILENCIO() })
         : p.regla
           ? this.http.put(`/api/comisiones/reglas/${p.regla.id}`, { tipo: valor['tipo'], valor: valor['valor'] }, { context: SILENCIO() })
-          : this.http.post('/api/comisiones/reglas', valor, { context: SILENCIO() });
+          : this.http.post('/api/comisiones/reglas/lote', valor, { context: SILENCIO() });
 
     peticion.subscribe({
       next: () => {
         this.enviando.set(false);
         this.panel.set(null);
         if (p.tipo === 'liquidacion') this.seleccionados.set(new Set());
-        this.notificaciones.exito(p.tipo === 'liquidacion' ? 'Liquidación creada correctamente.' : 'Regla guardada correctamente.');
+        this.notificaciones.exito(p.tipo === 'liquidacion' ? 'Liquidación creada correctamente.' : p.regla ? 'Regla guardada correctamente.' : 'Reglas creadas correctamente.');
         this.cargarTodo();
       },
       error: (err: unknown) => {

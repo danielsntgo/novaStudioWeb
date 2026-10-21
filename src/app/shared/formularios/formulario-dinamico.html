@@ -19,7 +19,7 @@
               </span>
             </label>
           } @else {
-            <label class="fp-etiqueta" [for]="'campo-' + campo.nombre">
+            <label class="fp-etiqueta" [id]="'etiqueta-' + campo.nombre" [attr.for]="campo.tipo === 'seleccion-multiple' ? null : 'campo-' + campo.nombre">
               {{ campo.etiqueta }}@if (campo.requerido) { <span class="obligatorio" aria-hidden="true"> *</span> }
             </label>
 
@@ -34,6 +34,18 @@
                     <option [value]="op.valor">{{ op.etiqueta }}</option>
                   }
                 </select>
+              }
+              @case ('seleccion-multiple') {
+                <div class="lista-seleccion-multiple" [id]="'campo-' + campo.nombre" role="group" [attr.aria-labelledby]="'etiqueta-' + campo.nombre">
+                  @for (op of opciones(campo); track op.valor) {
+                    <label class="opcion-seleccion-multiple">
+                      <input type="checkbox" [checked]="opcionSeleccionada(campo, op.valor)" (change)="alternarSeleccionMultiple(campo, op.valor, $event)" [disabled]="enviando()" />
+                      <span>{{ op.etiqueta }}</span>
+                    </label>
+                  } @empty {
+                    <span class="ayuda">No hay servicios disponibles.</span>
+                  }
+                </div>
               }
               @default {
                 <input

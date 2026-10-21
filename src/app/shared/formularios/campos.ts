@@ -1,4 +1,4 @@
-export type TipoCampo = 'texto' | 'email' | 'telefono' | 'numero' | 'decimal' | 'area' | 'seleccion' | 'casilla' | 'fecha' | 'hora';
+export type TipoCampo = 'texto' | 'email' | 'telefono' | 'numero' | 'decimal' | 'area' | 'seleccion' | 'seleccion-multiple' | 'casilla' | 'fecha' | 'hora';
 
 export interface OpcionCampo {
   valor: string;

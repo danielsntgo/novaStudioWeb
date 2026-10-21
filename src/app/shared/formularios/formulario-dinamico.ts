@@ -17,6 +17,7 @@ function validadoresDe(campo: CampoForm): ValidatorFn[] {
 function valorInicialDe(campo: CampoForm, inicial: Record<string, unknown>): unknown {
   const bruto = campo.nombre in inicial ? inicial[campo.nombre] : campo.valorPorDefecto;
   if (campo.tipo === 'casilla') return bruto === true;
+  if (campo.tipo === 'seleccion-multiple') return Array.isArray(bruto) ? bruto.map(String) : [];
   if (bruto === null || bruto === undefined) return campo.tipo === 'seleccion' ? '' : campo.tipo === 'numero' || campo.tipo === 'decimal' ? null : '';
   if (campo.tipo === 'seleccion') return String(bruto);
   return bruto;
@@ -99,6 +100,22 @@ export class FormularioDinamico {
     return campo.opcionesSegun?.(this.formulario().getRawValue()) ?? campo.opciones ?? [];
   }
 
+  protected opcionSeleccionada(campo: CampoForm, valor: string): boolean {
+    const seleccion = this.formulario().controls[campo.nombre].value;
+    return Array.isArray(seleccion) && seleccion.includes(valor);
+  }
+
+  protected alternarSeleccionMultiple(campo: CampoForm, valor: string, evento: Event): void {
+    const control = this.formulario().controls[campo.nombre];
+    const actuales: string[] = Array.isArray(control.value)
+      ? control.value.filter((opcion): opcion is string => typeof opcion === 'string')
+      : [];
+    const marcado = (evento.target as HTMLInputElement).checked;
+    const siguientes = marcado ? [...actuales, valor] : actuales.filter((opcion) => opcion !== valor);
+    control.setValue([...new Set(siguientes)]);
+    control.markAsTouched();
+  }
+
   protected tipoHtml(campo: CampoForm): string {
     switch (campo.tipo) {
       case 'email': return 'email';
@@ -132,7 +149,7 @@ export class FormularioDinamico {
     if (e['opcionNoValida']) return 'Selecciona una opción válida para los valores actuales.';
     if (e['email']) return 'Escribe un correo válido.';
     if (e['min']) return `Debe ser mayor o igual a ${campo.min}.`;
-    if (e['maxlength']) return `Máximo ${campo.maximo} caracteres.`;
+    if (e['maxlength']) return campo.tipo === 'seleccion-multiple' ? `Máximo ${campo.maximo} opciones.` : `Máximo ${campo.maximo} caracteres.`;
     return 'Valor no válido.';
   }
 
@@ -180,6 +197,8 @@ export class FormularioDinamico {
         const n = Number(valor);
         return Number.isFinite(n) ? n : null;
       }
+      case 'seleccion-multiple':
+        return Array.isArray(valor) ? valor : [];
       case 'seleccion':
         return valor === '' || valor === undefined ? null : valor;
       default: {
