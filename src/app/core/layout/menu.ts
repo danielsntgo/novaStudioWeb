@@ -31,7 +31,7 @@ export const ITEMS_MENU: readonly ItemMenu[] = [
   { ruta: 'citas', titulo: 'Citas', icono: 'calendario', descripcion: 'Agenda diaria, semanal y mensual', roles: AMBOS, grupo: 'Operación', fase: 4, backendListo: true },
   { ruta: 'clientes', titulo: 'Clientes', icono: 'usuarios', descripcion: 'Clientes e historial', roles: AMBOS, grupo: 'Operación', fase: 2, backendListo: true },
   { ruta: 'facturacion', titulo: 'Facturación', icono: 'recibo', descripcion: 'Facturas y comprobantes en PDF', roles: AMBOS, grupo: 'Operación', fase: 5, backendListo: true },
-  { ruta: 'caja', titulo: 'Caja', icono: 'cartera', descripcion: 'Apertura, movimientos y arqueo', roles: AMBOS, grupo: 'Operación', fase: 5, backendListo: true },
+  { ruta: 'finanzas', titulo: 'Finanzas', icono: 'cartera', descripcion: 'Caja, cuentas, saldos y transferencias', roles: AMBOS, grupo: 'Operación', fase: 8, backendListo: true },
 
   { ruta: 'servicios', titulo: 'Servicios', icono: 'destellos', descripcion: 'Catálogo de servicios', roles: AMBOS, grupo: 'Gestión', fase: 2, backendListo: true },
   { ruta: 'inventario', titulo: 'Inventario', icono: 'caja', descripcion: 'Productos, insumos y existencias', roles: SOLO_ADMIN, grupo: 'Gestión', fase: 3, backendListo: true },
@@ -41,7 +41,6 @@ export const ITEMS_MENU: readonly ItemMenu[] = [
 
   { ruta: 'comisiones', titulo: 'Comisiones', icono: 'porcentaje', descripcion: 'Comisiones de los empleados', roles: SOLO_ADMIN, grupo: 'Administración', fase: 6, backendListo: true },
   { ruta: 'reportes', titulo: 'Reportes', icono: 'grafica', descripcion: 'Análisis y exportación', roles: SOLO_ADMIN, grupo: 'Administración', fase: 7, backendListo: true },
-  { ruta: 'finanzas', titulo: 'Finanzas', icono: 'cartera', descripcion: 'Cuentas, saldos y transferencias', roles: SOLO_ADMIN, grupo: 'Administración', fase: 8, backendListo: true },
   { ruta: 'usuarios', titulo: 'Usuarios', icono: 'escudo', descripcion: 'Cuentas de acceso', roles: SOLO_ADMIN, grupo: 'Administración', fase: 1, backendListo: true },
   { ruta: 'configuracion', titulo: 'Configuración', icono: 'ajustes', descripcion: 'Negocio, impuestos y pagos', roles: SOLO_ADMIN, grupo: 'Administración', fase: 1, backendListo: true },
 ];

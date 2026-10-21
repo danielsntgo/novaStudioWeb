@@ -7,6 +7,7 @@ import { normalizarPagina, numero, parametros } from '../../core/api/paginas';
 import { leerProblema, mensajeDeError } from '../../core/api/problema';
 import { ConfirmacionService } from '../../core/confirmacion/confirmacion.service';
 import { NotificacionesService } from '../../core/notificaciones/notificaciones.service';
+import { SesionService } from '../../core/auth/sesion.service';
 import { formatearFechaHora, inicioDiaUtc, sumarDias } from '../../core/tiempo/zona';
 import { Icono } from '../../shared/componentes/icono';
 import { PanelLateral } from '../../shared/componentes/panel-lateral';
@@ -14,8 +15,9 @@ import { Paginador } from '../../shared/componentes/paginador';
 import { CampoForm, OpcionCampo } from '../../shared/formularios/campos';
 import { FormularioDinamico } from '../../shared/formularios/formulario-dinamico';
 import { formatearMoneda } from '../../shared/formato/formato';
+import { Caja } from '../caja/caja';
 
-type Vista = 'cuentas' | 'transferencias';
+type Vista = 'caja' | 'cuentas' | 'transferencias';
 type TipoCuenta = 'Efectivo' | 'Banco' | 'TarjetaCredito' | 'Billetera' | 'Otro';
 type Panel = { tipo: 'cuenta'; cuenta: CuentaFinanciera | null } | { tipo: 'movimientos'; cuenta: CuentaFinanciera } | { tipo: 'transferencia' } | null;
 
@@ -84,17 +86,19 @@ const TIPOS_MOVIMIENTO = [
 
 @Component({
   selector: 'app-finanzas',
-  imports: [FormsModule, Icono, PanelLateral, Paginador, FormularioDinamico],
+  imports: [FormsModule, Icono, PanelLateral, Paginador, FormularioDinamico, Caja],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './finanzas.html',
   styleUrl: './finanzas.css',
 })
 export class Finanzas implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly sesion = inject(SesionService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly confirmacion = inject(ConfirmacionService);
 
   protected readonly vista = signal<Vista>('cuentas');
+  protected readonly esAdmin = () => this.sesion.tieneRol('Administrador');
   protected readonly resumen = signal<ResumenFinanciero | null>(null);
   protected readonly cuentas = signal<CuentaFinanciera[]>([]);
   protected readonly cuentasDisponibles = signal<CuentaFinanciera[]>([]);
@@ -179,6 +183,10 @@ export class Finanzas implements OnInit {
   ]);
 
   ngOnInit(): void {
+    if (!this.esAdmin()) {
+      this.vista.set('caja');
+      return;
+    }
     this.cargarResumen();
     this.cargarCuentas();
     this.cargarCuentasDisponibles();

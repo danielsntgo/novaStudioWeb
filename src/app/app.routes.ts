@@ -50,6 +50,7 @@ export const routes: Routes = [
     loadComponent: () => import('./core/layout/layout').then((m) => m.Layout),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      { path: 'caja', pathMatch: 'full', redirectTo: 'finanzas' },
       {
         path: 'inicio',
         title: 'Inicio',
