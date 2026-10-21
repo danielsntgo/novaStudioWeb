@@ -1,0 +1,30 @@
+.filtro { width: auto; min-width: 180px; border-radius: 999px; padding-top: 9px; padding-bottom: 9px; font-size: 14px; }
+.fecha { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--fp-gris-700); }
+.fecha .fp-input { width: auto; padding: 8px 12px; font-size: 14px; }
+.pista { margin-bottom: 14px; font-size: 14px; color: var(--fp-texto-suave); }
+.barra-seleccion { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 14px; border-radius: 16px; background: var(--fp-azul-50); color: var(--fp-azul-900); font-size: 14.5px; }
+.barra-seleccion div { display: flex; align-items: center; gap: 8px; }
+.contenedor { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th { text-align: left; padding: 12px 18px; white-space: nowrap; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-gris-500); background: rgba(245, 245, 247, 0.7); border-bottom: 1px solid var(--fp-borde-suave); }
+td { padding: 13px 18px; border-bottom: 1px solid var(--fp-borde-suave); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.seleccionada { background: rgba(0, 113, 227, 0.06); }
+tr.recargando { opacity: 0.55; }
+.chk { width: 44px; padding-right: 0; }
+.chk input { width: 18px; height: 18px; accent-color: var(--fp-primario); cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.der { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.negativo { color: var(--fp-peligro); }
+.principal { display: block; font-weight: 500; }
+.sec { display: block; font-size: 13px; color: var(--fp-gris-500); }
+.barra { display: block; height: 14px; width: 70%; border-radius: 6px; background: linear-gradient(90deg, #ececf0 25%, #f6f6f9 50%, #ececf0 75%); background-size: 200% 100%; animation: brillo 1.3s linear infinite; }
+@keyframes brillo { to { background-position: -200% 0; } }
+.vacio { padding: 56px 24px; text-align: center; }
+.vacio__titulo { font-size: 17px; font-weight: 600; }
+.vacio__detalle { margin-top: 4px; color: var(--fp-texto-suave); }
+.resumen { margin-bottom: 16px; font-size: 14.5px; line-height: 1.5; }
+.ayuda { font-size: 12.5px; color: var(--fp-gris-500); }
+.obligatorio { color: var(--fp-peligro); }
+.botones-pie { display: contents; }
+@media (max-width: 720px) { .mov { display: none; } }

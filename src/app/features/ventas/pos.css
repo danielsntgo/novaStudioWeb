@@ -1,0 +1,94 @@
+:host { display: block; }
+.pos { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 24px; max-width: 1400px; margin: 0 auto; padding: 28px 32px 40px; align-items: start; }
+.encabezado { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.encabezado h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; }
+.volver { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; margin-bottom: 6px; }
+.estado-caja { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.estado-caja--abierta { background: #e6f6ec; color: #17703b; }
+.estado-caja--cerrada { background: #fff3dd; color: #8a5300; }
+.estado-caja--cerrada:hover { text-decoration: none; background: #ffe9c2; }
+
+.bloqueo { display: flex; align-items: center; gap: 16px; padding: 18px 20px; margin-bottom: 18px; flex-wrap: wrap; background: #fffaf0; border-color: #f6dca6; }
+.bloqueo__icono { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center; background: #fff3dd; color: #8a5300; flex: none; }
+.bloqueo div { flex: 1; min-width: 200px; }
+.bloqueo h2 { font-size: 17px; font-weight: 650; }
+.bloqueo p { font-size: 14px; color: var(--fp-texto-suave); margin-top: 2px; }
+a.fp-boton { text-decoration: none; }
+
+.buscador { position: relative; display: block; margin-bottom: 14px; }
+.buscador svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--fp-gris-400); pointer-events: none; }
+.buscador .fp-input { padding-left: 46px; border-radius: 999px; padding-top: 13px; padding-bottom: 13px; }
+.pestanas { margin-bottom: 16px; }
+
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; transition: opacity var(--fp-transicion); }
+.rejilla.cargando { opacity: 0.5; }
+.tarjeta-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 108px; padding: 14px 15px; text-align: left; font: inherit; cursor: pointer;
+  background: var(--fp-superficie); border: 1px solid var(--fp-borde-suave); border-radius: 18px; box-shadow: var(--fp-sombra-s);
+  transition: transform var(--fp-transicion), box-shadow var(--fp-transicion), border-color var(--fp-transicion);
+}
+.tarjeta-item:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--fp-sombra-m); border-color: var(--fp-azul-200); }
+.tarjeta-item:active:not(:disabled) { transform: scale(0.985); }
+.tarjeta-item:disabled { opacity: 0.5; cursor: not-allowed; }
+.tarjeta-item__nombre { font-size: 15px; font-weight: 600; line-height: 1.25; letter-spacing: -0.015em; }
+.tarjeta-item__detalle { font-size: 12.5px; color: var(--fp-gris-500); }
+.tarjeta-item__detalle.agotado { color: var(--fp-peligro); font-weight: 600; }
+.tarjeta-item__precio { margin-top: auto; padding-top: 6px; font-size: 16px; font-weight: 700; color: var(--fp-azul-700); font-variant-numeric: tabular-nums; }
+.vacio { grid-column: 1 / -1; padding: 24px 4px; color: var(--fp-texto-suave); }
+
+/* ----- Carrito ----- */
+.carrito { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 14px; padding: 20px; max-height: calc(100vh - 104px); overflow-y: auto; box-shadow: var(--fp-sombra-l); }
+.carrito__cabecera { display: flex; align-items: center; justify-content: space-between; }
+.carrito__cabecera h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.025em; }
+.carrito__vacio { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 12px; text-align: center; color: var(--fp-gris-400); }
+.carrito__vacio p { font-size: 14.5px; color: var(--fp-texto-suave); }
+
+.lineas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.linea { padding: 12px; border-radius: 14px; background: var(--fp-gris-50); }
+.linea__principal { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.linea__nombre { display: flex; flex-direction: column; min-width: 0; }
+.linea__nombre strong { font-size: 14.5px; font-weight: 600; }
+.linea__nombre small { font-size: 12.5px; color: var(--fp-gris-500); }
+.linea__total { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.linea__controles { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.cantidad { display: inline-flex; align-items: center; background: #fff; border: 1px solid var(--fp-borde); border-radius: 11px; overflow: hidden; }
+.cantidad button { width: 34px; height: 34px; border: 0; background: transparent; font-size: 18px; color: var(--fp-gris-800); cursor: pointer; }
+.cantidad button:hover { background: var(--fp-azul-50); color: var(--fp-azul-700); }
+.cantidad input { width: 56px; height: 34px; border: 0; text-align: center; font: inherit; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; outline: none; -moz-appearance: textfield; background: transparent; }
+.cantidad input::-webkit-outer-spin-button, .cantidad input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cantidad input:focus { background: var(--fp-azul-50); }
+.quitar { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--fp-gris-500); cursor: pointer; }
+.quitar:hover { background: var(--fp-peligro-fondo); color: var(--fp-peligro); }
+.ajustes, .generales { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.generales { margin-top: 0; padding: 12px; border-radius: 14px; background: var(--fp-gris-50); }
+.ancho { grid-column: span 2; }
+.ajustes .fp-input, .generales .fp-input { padding: 9px 11px; font-size: 14px; }
+.obligatorio { color: var(--fp-peligro); }
+.ayuda { font-size: 13px; color: var(--fp-texto-suave); }
+
+.totales { margin: 0; padding: 14px 16px; border-radius: 16px; background: #fff; border: 1px solid var(--fp-borde-suave); display: flex; flex-direction: column; gap: 6px; }
+.totales div { display: flex; justify-content: space-between; font-size: 14.5px; color: var(--fp-gris-700); }
+.totales dd { margin: 0; font-variant-numeric: tabular-nums; color: var(--fp-texto); }
+.gran-total { padding-top: 8px; margin-top: 2px; border-top: 1px solid var(--fp-borde-suave); font-size: 19px !important; font-weight: 700; color: var(--fp-texto) !important; letter-spacing: -0.02em; }
+.nota { margin-top: -6px; font-size: 12.5px; color: var(--fp-gris-500); }
+.titulo-seccion { font-size: 15px; font-weight: 650; margin-top: 4px; }
+.saldo { font-size: 14px; padding: 10px 12px; border-radius: 12px; }
+.saldo--pendiente { background: #fff3dd; color: #7a4a00; }
+.saldo--exceso { background: var(--fp-peligro-fondo); color: #8f0012; }
+.saldo small { font-weight: 400; }
+.casilla { display: flex; align-items: center; gap: 10px; font-size: 14.5px; cursor: pointer; }
+.casilla input { width: 18px; height: 18px; accent-color: var(--fp-primario); }
+.cobrar { padding-block: 15px; font-size: 16.5px; font-weight: 600; }
+
+.exito { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 6px 0 14px; }
+.exito__icono { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; background: #e6f6ec; color: #17703b; margin-bottom: 6px; }
+.exito__total { font-size: 32px; font-weight: 700; letter-spacing: -0.03em; color: var(--fp-texto); }
+.exito__detalle { font-size: 14.5px; color: var(--fp-texto-suave); }
+.exito__pendiente { margin-top: 8px; font-size: 13.5px; padding: 10px 12px; border-radius: 12px; background: #fff3dd; color: #7a4a00; }
+.exito__docs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.botones-pie { display: contents; }
+
+@media (max-width: 1100px) {
+  .pos { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 40px; }
+  .carrito { position: static; max-height: none; }
+}

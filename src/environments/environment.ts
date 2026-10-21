@@ -1,5 +1,4 @@
-// Entorno de producción. apiUrl vacío: el sitio publicado usa /api relativo
-// y Render reescribe esas solicitudes hacia el backend.
+// El sitio publicado enruta /api hacia el backend mediante la configuración del host.
 export const environment = {
   produccion: true,
   apiUrl: '',

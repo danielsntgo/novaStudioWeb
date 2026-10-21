@@ -63,10 +63,9 @@ export class DatosNegocio implements OnInit {
     { nombre: 'correo', etiqueta: 'Correo electrónico', tipo: 'email', ancho: 'medio' },
     { nombre: 'codigoMoneda', etiqueta: 'Moneda (código ISO)', tipo: 'texto', requerido: true, maximo: 3, mayusculas: true, ancho: 'medio', marcador: 'COP', ayuda: 'Tres letras, por ejemplo COP o USD.' },
     { nombre: 'permitirVentaSinStock', etiqueta: 'Permitir vender sin existencias', tipo: 'casilla', ayuda: 'Si está activo, se podrá vender un producto aunque su stock sea cero.' },
-    { nombre: 'permitirSaldosPendientes', etiqueta: 'Permitir ventas con saldo pendiente', tipo: 'casilla', ayuda: 'Permite guardar ventas parcialmente pagadas.' },
-    { nombre: 'facturacionHabilitada', etiqueta: 'Habilitar facturación', tipo: 'casilla', ayuda: 'Permite solicitar factura además del comprobante.' },
-    { nombre: 'exigirEmpleadoVentaServicio', etiqueta: 'Exigir empleado al vender servicios', tipo: 'casilla', ayuda: 'Útil para comisiones y trazabilidad por empleado.' },
-    { nombre: 'comisionProductosHabilitada', etiqueta: 'Pagar comisión por venta de productos', tipo: 'casilla', deshabilitado: true, ayuda: 'El contrato actual solo permite comisiones por servicios.' },
+    { nombre: 'permitirSaldosPendientes', etiqueta: 'Permitir ventas con saldo pendiente', tipo: 'casilla', ayuda: 'Permite cobrar parte de la venta y registrar abonos después.' },
+    { nombre: 'exigirEmpleadoVentaServicio', etiqueta: 'Exigir empleado en cada servicio vendido', tipo: 'casilla', ayuda: 'Necesario para calcular las comisiones: sin empleado no se genera comisión.' },
+    { nombre: 'facturacionHabilitada', etiqueta: 'Habilitar facturas internas', tipo: 'casilla', ayuda: 'Además del comprobante, permite emitir una factura interna con su propia numeración. No es factura electrónica de la DIAN.' },
   ];
 
   ngOnInit(): void {
@@ -99,7 +98,7 @@ export class DatosNegocio implements OnInit {
     this.guardando.set(true);
     this.errorGuardar.set(null);
     this.erroresCampos.set(null);
-    this.http.put<Record<string, unknown>>('/api/configuracion', valor, { context: new HttpContext().set(SILENCIAR_ERRORES, true) }).subscribe({
+    this.http.put<Record<string, unknown>>('/api/configuracion', { ...valor, comisionProductosHabilitada: false }, { context: new HttpContext().set(SILENCIAR_ERRORES, true) }).subscribe({
       next: (c) => {
         this.guardando.set(false);
         this.sinConfigurar.set(false);

@@ -1,34 +1,31 @@
 import { Route, Routes } from '@angular/router';
 import { autenticadoGuard, invitadoGuard, rolGuard, sesionIniciadaGuard } from './core/auth/guards';
-import { ITEMS_MENU } from './core/layout/menu';
+import { ITEMS_MENU, ItemMenu } from './core/layout/menu';
 
-/** Una ruta por módulo del menú. Hasta que se construya cada pantalla, muestra la página "pendiente". */
-/** Pantallas ya construidas. El resto de módulos usa la página "pendiente". */
-const MODULOS_LISTOS: Record<string, () => Promise<unknown>> = {
+/** Pantalla de cada módulo, cargada solo cuando se visita (lazy loading). */
+const PANTALLAS: Record<string, Route['loadComponent']> = {
+  ventas: () => import('./features/ventas/ventas').then((m) => m.Ventas),
+  citas: () => import('./features/citas/citas').then((m) => m.Citas),
   clientes: () => import('./features/clientes/clientes').then((m) => m.Clientes),
+  facturacion: () => import('./features/facturacion/facturacion').then((m) => m.Facturacion),
+  caja: () => import('./features/caja/caja').then((m) => m.CajaPagina),
+  finanzas: () => import('./features/finanzas/finanzas').then((m) => m.Finanzas),
   servicios: () => import('./features/servicios/servicios').then((m) => m.Servicios),
-  empleados: () => import('./features/empleados/empleados').then((m) => m.Empleados),
-  usuarios: () => import('./features/usuarios/usuarios').then((m) => m.Usuarios),
   inventario: () => import('./features/inventario/inventario').then((m) => m.Inventario),
   compras: () => import('./features/compras/compras').then((m) => m.Compras),
-  citas: () => import('./features/citas/citas').then((m) => m.Citas),
-  caja: () => import('./features/caja/caja').then((m) => m.Caja),
-  ventas: () => import('./features/ventas/ventas').then((m) => m.Ventas),
-  facturacion: () => import('./features/facturacion/facturacion').then((m) => m.Facturacion),
+  proveedores: () => import('./features/proveedores/proveedores').then((m) => m.Proveedores),
+  empleados: () => import('./features/empleados/empleados').then((m) => m.Empleados),
   comisiones: () => import('./features/comisiones/comisiones').then((m) => m.Comisiones),
   reportes: () => import('./features/reportes/reportes').then((m) => m.Reportes),
-  finanzas: () => import('./features/finanzas/finanzas').then((m) => m.Finanzas),
-  proveedores: () => import('./features/proveedores/proveedores').then((m) => m.Proveedores),
+  usuarios: () => import('./features/usuarios/usuarios').then((m) => m.Usuarios),
   configuracion: () => import('./features/configuracion/configuracion').then((m) => m.Configuracion),
 };
 
-const rutasDeModulos: Routes = ITEMS_MENU.filter((item) => item.ruta !== 'inicio').map((item) => ({
-  path: item.ruta,
-  title: item.titulo,
-  canActivate: [rolGuard(...item.roles)],
-  loadComponent: (MODULOS_LISTOS[item.ruta] ?? (() => import('./features/modulo-pendiente/modulo-pendiente').then((m) => m.ModuloPendiente))) as Route['loadComponent'],
-  data: { modulo: item.titulo, icono: item.icono, fase: item.fase, backendListo: item.backendListo },
-}));
+function rutaDeModulo(item: ItemMenu): Route {
+  return { path: item.ruta, title: item.titulo, canActivate: [rolGuard(...item.roles)], loadComponent: PANTALLAS[item.ruta] };
+}
+
+const rutasDeModulos: Routes = ITEMS_MENU.filter((item) => item.ruta !== 'inicio').map(rutaDeModulo);
 
 export const routes: Routes = [
   {
@@ -50,11 +47,17 @@ export const routes: Routes = [
     loadComponent: () => import('./core/layout/layout').then((m) => m.Layout),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
-      { path: 'caja', pathMatch: 'full', redirectTo: 'finanzas' },
       {
         path: 'inicio',
         title: 'Inicio',
         loadComponent: () => import('./features/inicio/inicio').then((m) => m.Inicio),
+      },
+      // La pantalla de nueva venta va antes que la ruta genérica de ventas.
+      {
+        path: 'ventas/nueva',
+        title: 'Nueva venta',
+        canActivate: [rolGuard('Administrador', 'Recepcionista')],
+        loadComponent: () => import('./features/ventas/pos').then((m) => m.Pos),
       },
       ...rutasDeModulos,
       {

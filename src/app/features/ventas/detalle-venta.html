@@ -1,0 +1,160 @@
+@let venta = v();
+@if (error()) {
+  <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
+}
+
+@if (modo() === 'ver') {
+  <div class="cabecera">
+    <span class="fp-insignia" [class]="'fp-insignia fp-insignia--' + estado().tono">{{ estado().texto }}</span>
+    <span class="fecha">{{ fechaHora(venta.fechaVentaUtc) }}</span>
+  </div>
+  <p class="cliente"><svg app-icono="usuarios" [tamano]="16"></svg> {{ venta.clienteNombre || 'Cliente general' }}@if (venta.clienteDocumento) { <span class="doc">· {{ venta.clienteDocumento }}</span> }</p>
+  @if (venta.motivoAnulacion) { <p class="aviso-motivo"><strong>Motivo de anulación:</strong> {{ venta.motivoAnulacion }}@if (venta.fechaAnulacionUtc) { <small class="fh">{{ fechaHora(venta.fechaAnulacionUtc) }}</small> }</p> }
+
+  <div class="totales">
+    <div><span>Subtotal</span><strong>{{ dinero(venta.subtotal) }}</strong></div>
+    @if (num(venta.descuentoLineas) + num(venta.descuentoGeneral) > 0) { <div><span>Descuentos</span><strong>−{{ dinero(num(venta.descuentoLineas) + num(venta.descuentoGeneral)) }}</strong></div> }
+    @if (num(venta.impuestos) > 0) { <div><span>Impuestos</span><strong>{{ dinero(venta.impuestos) }}</strong></div> }
+    <div class="total"><span>Total</span><strong>{{ dinero(venta.total) }}</strong></div>
+    <div><span>Pagado</span><strong>{{ dinero(venta.totalPagado) }}</strong></div>
+    @if (num(venta.totalDevuelto) > 0) { <div><span>Devuelto</span><strong>{{ dinero(venta.totalDevuelto) }}</strong></div> }
+    @if (num(venta.totalReintegrado) > 0) { <div><span>Reintegrado</span><strong>{{ dinero(venta.totalReintegrado) }}</strong></div> }
+    @if (pendiente() > 0) { <div class="pendiente"><span>Saldo pendiente</span><strong>{{ dinero(venta.totalPendiente) }}</strong></div> }
+  </div>
+
+  <h3>Detalle</h3>
+  <div class="caja-tabla">
+    <table>
+      <thead><tr><th>Concepto</th><th class="der">Cant.</th><th class="der">Precio</th><th class="der">Total</th></tr></thead>
+      <tbody>
+        @for (l of venta.lineas; track l.id) {
+          <tr>
+            <td>
+              <span class="concepto">{{ l.nombre }}</span>
+              <span class="sec">{{ l.tipo === 'Servicio' ? 'Servicio' : 'Producto' }}@if (l.impuestoNombre) { · {{ l.impuestoNombre }} }@if (num(l.descuentoImporte) + num(l.descuentoGeneralImporte) > 0) { · dto. {{ dinero(num(l.descuentoImporte) + num(l.descuentoGeneralImporte)) }} }</span>
+            </td>
+            <td class="der">{{ cantidad(l.cantidad) }}</td>
+            <td class="der">{{ dinero(l.precioUnitario) }}</td>
+            <td class="der">{{ dinero(l.totalImporte) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Pagos</h3>
+  @if (venta.pagos.length === 0) {
+    <p class="vacio">No hay pagos registrados.</p>
+  } @else {
+    <ul class="lista">
+      @for (p of venta.pagos; track p.id) {
+        <li><span>{{ p.metodoPagoNombre }}@if (p.referencia) { <small>· ref. {{ p.referencia }}</small> }<small class="fh">{{ fechaHora(p.fechaUtc) }}</small></span><strong>{{ dinero(p.importe) }}</strong></li>
+      }
+    </ul>
+  }
+
+  @if (venta.devoluciones.length > 0) {
+    <h3>Devoluciones</h3>
+    <ul class="lista">
+      @for (d of venta.devoluciones; track d.id) {
+        <li><span>{{ d.motivo }}<small class="fh">{{ fechaHora(d.fechaUtc) }}</small>@if (num(d.importeReintegrado) > 0) { <small class="fh">Reintegro: {{ dinero(d.importeReintegrado) }}</small> } @else { <small class="fh">Sin reintegro monetario</small> }</span><strong>−{{ dinero(d.importeLineas) }}</strong></li>
+      }
+    </ul>
+  }
+
+  <h3>Documentos</h3>
+  <div class="documentos">
+    @if (comprobante(); as c) {
+      <button type="button" class="doc-boton" [disabled]="descargando() !== null" (click)="descargar('comprobante')">
+        <svg app-icono="recibo" [tamano]="20"></svg>
+        <span><strong>Comprobante</strong><small>{{ c.numeroCompleto }}</small></span>
+        <span class="pdf">{{ descargando() === 'comprobante' ? 'Descargando…' : 'PDF' }}</span>
+      </button>
+    }
+    @if (factura(); as f) {
+      <button type="button" class="doc-boton" [disabled]="descargando() !== null" (click)="descargar('factura')">
+        <svg app-icono="recibo" [tamano]="20"></svg>
+        <span><strong>Factura</strong><small>{{ f.numeroCompleto }}</small></span>
+        <span class="pdf">{{ descargando() === 'factura' ? 'Descargando…' : 'PDF' }}</span>
+      </button>
+    }
+  </div>
+
+  @if (puedeAbonar() || puedeDevolver()) {
+    <h3>Acciones</h3>
+    <div class="acciones">
+      @if (puedeAbonar()) { <button type="button" class="fp-boton fp-boton--pequeno" (click)="iniciar('abonar')">Registrar abono</button> }
+      @if (puedeDevolver()) {
+        <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" (click)="iniciar('devolver')">Devolución</button>
+        <button type="button" class="fp-boton fp-boton--peligro fp-boton--pequeno" (click)="iniciar('anular')">Anular venta</button>
+      }
+    </div>
+  }
+} @else {
+  <button type="button" class="atras" (click)="volver()"><svg app-icono="flecha-izquierda" [tamano]="14"></svg> Volver al detalle</button>
+
+  @switch (modo()) {
+    @case ('abonar') {
+      <h3 class="sin-margen">Registrar abono</h3>
+      <p class="ayuda">Saldo pendiente: <strong>{{ dinero(venta.totalPendiente) }}</strong>. Requiere una caja abierta.</p>
+    }
+    @case ('devolver') {
+      <h3 class="sin-margen">Devolución de productos o servicios</h3>
+      <p class="ayuda">Indica cuántas unidades se devuelven de cada línea. Los productos vuelven al inventario.</p>
+    }
+    @case ('anular') {
+      <h3 class="sin-margen">Anular venta</h3>
+      <p class="ayuda">Se anulan todas las unidades que aún no se hayan devuelto. Solo puede hacerlo un administrador y requiere caja abierta.</p>
+    }
+  }
+
+  @if (metodos() === undefined) {
+    <p class="vacio">Cargando métodos de pago…</p>
+  } @else if (metodos() === null) {
+    <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>Tu rol no puede consultar los métodos de pago, necesarios para esta operación. Pide al administrador que la realice.</span></div>
+  } @else {
+    @if (modo() === 'devolver') {
+      <div class="devolucion">
+        <div class="devolucion__encabezado"><span>Líneas de la venta</span><button type="button" class="fp-enlace" (click)="devolverTodo()">Devolver todo</button></div>
+        @for (x of lineasDevolubles(); track x.linea.id) {
+          <div class="linea-dev">
+            <div class="linea-dev__nombre"><strong>{{ x.linea.nombre }}</strong><small>Disponible para devolver: {{ cantidad(x.disponible) }} de {{ cantidad(x.linea.cantidad) }}</small></div>
+            <input type="number" min="0" [max]="x.disponible" [step]="x.linea.tipo === 'Servicio' || !x.linea.manejaFraccion ? 1 : 0.001" class="fp-input" placeholder="0" [attr.aria-label]="'Cantidad a devolver de ' + x.linea.nombre" [ngModel]="cantidades()[x.linea.id]" (ngModelChange)="cambiarCantidad(x.linea.id, $event, x.disponible)" />
+          </div>
+        }
+        <p class="resumen-dev">Valor a devolver: <strong>{{ dinero(importeADevolver()) }}</strong></p>
+      </div>
+    }
+
+    @if (modo() !== 'abonar') {
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="venta-motivo">Motivo <span class="obligatorio">*</span></label>
+        <textarea id="venta-motivo" rows="2" maxlength="250" class="fp-input" [ngModel]="motivo()" (ngModelChange)="motivo.set($event)"></textarea>
+      </div>
+      <div class="reintegro">
+        <h4>Reintegro de dinero</h4>
+        @if (reintegroEstimado() > 0) {
+          <p class="ayuda">Según lo cobrado, corresponde reintegrar <strong>{{ dinero(reintegroEstimado()) }}</strong>. El sistema valida el monto exacto.</p>
+          <button type="button" class="fp-enlace" (click)="usarReintegroEstimado()">Usar el monto estimado</button>
+        } @else {
+          <p class="ayuda">Con lo cobrado hasta ahora, no corresponde reintegrar dinero.</p>
+        }
+      </div>
+    }
+
+    @if (modo() === 'abonar' || reintegroEstimado() > 0 || pagos().length > 1) {
+      <app-pagos-editor [(pagos)]="pagos" [metodos]="metodos()!" [moneda]="venta.codigoMoneda" [permitirVaciar]="modo() !== 'abonar'" />
+    }
+
+    @if (problema(); as p) { <p class="fp-campo__error problema">{{ p }}</p> }
+
+    <div class="acciones fin">
+      <button type="button" class="fp-boton fp-boton--secundario" (click)="volver()" [disabled]="enviando()">Cancelar</button>
+      @switch (modo()) {
+        @case ('abonar') { <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" [disabled]="enviando() || problema() !== null" (click)="abonar()">Registrar abono</button> }
+        @case ('devolver') { <button type="button" class="fp-boton fp-boton--peligro" [class.fp-cargando]="enviando()" [disabled]="enviando() || problema() !== null" (click)="devolver()">Registrar devolución</button> }
+        @case ('anular') { <button type="button" class="fp-boton fp-boton--peligro" [class.fp-cargando]="enviando()" [disabled]="enviando() || problema() !== null" (click)="anular()">Anular venta</button> }
+      }
+    </div>
+  }
+}

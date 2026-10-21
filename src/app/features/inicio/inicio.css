@@ -21,3 +21,15 @@
 .acceso__descripcion { font-size: 13.5px; color: var(--fp-texto-suave); }
 .acceso__flecha { color: var(--fp-gris-300); transition: transform var(--fp-transicion), color var(--fp-transicion); }
 .acceso:hover .acceso__flecha { transform: translateX(3px); color: var(--fp-azul-500); }
+
+.resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 36px; }
+.dato { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 18px 20px; border-radius: 20px; background: var(--fp-superficie); border: 1px solid var(--fp-borde-suave); box-shadow: var(--fp-sombra-m); color: var(--fp-texto); text-decoration: none; transition: transform var(--fp-transicion), box-shadow var(--fp-transicion); }
+.dato:hover { text-decoration: none; transform: translateY(-2px); box-shadow: var(--fp-sombra-l); }
+.dato__icono { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 8px; background: var(--fp-azul-50); color: var(--fp-azul-600); }
+.dato--verde .dato__icono { background: #e6f6ec; color: #17703b; }
+.dato--ambar .dato__icono { background: #fff3dd; color: #8a5300; }
+.dato--gris .dato__icono { background: var(--fp-gris-100); color: var(--fp-gris-600); }
+.dato__titulo { font-size: 13px; font-weight: 600; color: var(--fp-texto-suave); }
+.dato__valor { font-size: 26px; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.dato__detalle { font-size: 13px; color: var(--fp-gris-500); }
+.subtitulo { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 14px; }

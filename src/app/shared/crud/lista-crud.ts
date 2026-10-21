@@ -85,8 +85,7 @@ export class ListaCrud<T extends { id: string; activo?: boolean }> {
   protected readonly camposPanel = computed(() => {
     const p = this.panel();
     if (p?.modo === 'accion') return p.accion.formulario?.campos ?? [];
-    const campos = this.config().campos;
-    return typeof campos === 'function' ? campos() : campos;
+    return this.config().campos;
   });
 
   protected readonly valorInicialPanel = computed<Record<string, unknown>>(() => {

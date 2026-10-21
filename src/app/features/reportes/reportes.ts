@@ -1,251 +1,211 @@
-import { HttpClient, HttpContext } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { CatalogosService } from '../../core/api/catalogos.service';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
+import { descargarArchivo } from '../../core/api/descargas';
 import { normalizarPagina, numero, parametros } from '../../core/api/paginas';
 import { mensajeDeError } from '../../core/api/problema';
 import { NotificacionesService } from '../../core/notificaciones/notificaciones.service';
-import { formatearFechaHora, inicioDiaUtc, sumarDias } from '../../core/tiempo/zona';
+import { formatearFechaHora, hoyLocal, inicioDiaUtc, sumarDias } from '../../core/tiempo/zona';
 import { Icono } from '../../shared/componentes/icono';
+import { ClienteOpcion, SelectorCliente } from '../../shared/componentes/selector-cliente';
 import { formatearMoneda } from '../../shared/formato/formato';
-
-type TipoReporte = 'ventas' | 'ingresos' | 'productos' | 'servicios' | 'inventario' | 'compras' | 'caja' | 'clientes' | 'empleados' | 'comisiones' | 'cuentas';
-type FormatoExportacion = 'pdf' | 'xlsx' | 'csv';
-
-interface Opcion {
-  id: string;
-  nombre: string;
-}
-
-interface FilaReporte {
-  valores: Record<string, unknown>;
-}
+import { COLUMNAS_DINERO, DefinicionReporte, FiltroReporte, FuenteOpciones, REPORTES, TONO_ESTADO, TipoReporte, esColumnaVisible, etiquetaColumna } from './config-reportes';
 
 interface TotalReporte {
   nombre: string;
-  valor: unknown;
+  valor: number | string;
   codigoMoneda?: string | null;
 }
-
-interface Reporte {
+interface RespuestaReporte {
   tipo: string;
   nombre: string;
   generadoUtc: string;
-  desdeUtc?: string | null;
-  hastaUtc?: string | null;
   columnas: string[];
-  filas: FilaReporte[];
+  filas: { valores: Record<string, unknown> }[];
   totales: TotalReporte[];
   totalRegistros: number | string;
   limite: number | string;
   truncado: boolean;
 }
+type Opciones = { valor: string; etiqueta: string }[];
 
-const SILENCIO = () => new HttpContext().set(SILENCIAR_ERRORES, true);
-
-const TIPOS: { id: TipoReporte; titulo: string }[] = [
-  { id: 'ventas', titulo: 'Ventas' },
-  { id: 'ingresos', titulo: 'Ingresos' },
-  { id: 'productos', titulo: 'Productos' },
-  { id: 'servicios', titulo: 'Servicios' },
-  { id: 'inventario', titulo: 'Inventario' },
-  { id: 'compras', titulo: 'Compras' },
-  { id: 'caja', titulo: 'Caja' },
-  { id: 'clientes', titulo: 'Clientes' },
-  { id: 'empleados', titulo: 'Empleados' },
-  { id: 'comisiones', titulo: 'Comisiones' },
-  { id: 'cuentas', titulo: 'Cuentas' },
-];
+const PASO_FILAS = 100;
 
 @Component({
   selector: 'app-reportes',
-  imports: [FormsModule, Icono],
+  imports: [FormsModule, Icono, SelectorCliente],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './reportes.html',
   styleUrl: './reportes.css',
 })
-export class Reportes implements OnInit {
+export class Reportes {
   private readonly http = inject(HttpClient);
+  private readonly catalogos = inject(CatalogosService);
   private readonly notificaciones = inject(NotificacionesService);
+  private readonly silencio = { context: new HttpContext().set(SILENCIAR_ERRORES, true) };
 
-  protected readonly tipos = TIPOS;
+  protected readonly definiciones = REPORTES;
   protected readonly tipo = signal<TipoReporte>('ventas');
-  protected readonly desde = signal('');
-  protected readonly hasta = signal('');
-  protected readonly limite = signal(5000);
-  protected readonly estado = signal('');
-  protected readonly clienteId = signal('');
-  protected readonly empleadoId = signal('');
-  protected readonly articuloId = signal('');
-  protected readonly servicioId = signal('');
-  protected readonly proveedorId = signal('');
-  protected readonly metodoPagoId = signal('');
-  protected readonly cuentaFinancieraId = signal('');
+  protected readonly definicion = computed<DefinicionReporte>(() => REPORTES.find((r) => r.tipo === this.tipo())!);
 
-  protected readonly clientes = signal<Opcion[]>([]);
-  protected readonly empleados = signal<Opcion[]>([]);
-  protected readonly articulos = signal<Opcion[]>([]);
-  protected readonly servicios = signal<Opcion[]>([]);
-  protected readonly proveedores = signal<Opcion[]>([]);
-  protected readonly metodos = signal<Opcion[]>([]);
-  protected readonly cuentasFinancieras = signal<Opcion[]>([]);
+  protected readonly desde = signal(sumarDias(hoyLocal(), -29));
+  protected readonly hasta = signal(hoyLocal());
+  protected readonly valores = signal<Record<string, string>>({});
+  protected readonly cliente = signal<ClienteOpcion | null>(null);
+  protected readonly opciones = signal<Partial<Record<FuenteOpciones, Opciones>>>({});
 
-  protected readonly reporte = signal<Reporte | null>(null);
-  protected readonly cargando = signal(true);
+  protected readonly resultado = signal<RespuestaReporte | null>(null);
+  protected readonly cargando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly exportando = signal<FormatoExportacion | null>(null);
+  protected readonly exportando = signal<string | null>(null);
+  protected readonly mostrar = signal(PASO_FILAS);
 
-  ngOnInit(): void {
-    this.cargarOpciones();
-    this.cargarReporte();
+  protected readonly columnas = computed(() => (this.resultado()?.columnas ?? []).filter(esColumnaVisible));
+  protected readonly filasVisibles = computed(() => (this.resultado()?.filas ?? []).slice(0, this.mostrar()));
+  protected readonly hayMasFilas = computed(() => (this.resultado()?.filas.length ?? 0) > this.mostrar());
+  protected readonly rangoInvalido = computed(() => this.definicion().fechas && !!this.desde() && !!this.hasta() && this.hasta() < this.desde());
+
+  constructor() {
+    this.seleccionar('ventas');
   }
 
-  protected cargarOpciones(): void {
-    forkJoin({
-      clientes: this.lista<Opcion>('/api/clientes', { activo: true, tamanoPagina: 100 }),
-      empleados: this.lista<Opcion>('/api/empleados', { activo: true, tamanoPagina: 100 }),
-      articulos: this.lista<Opcion>('/api/inventario/articulos', { activo: true, tamanoPagina: 100 }),
-      servicios: this.lista<Opcion>('/api/servicios/administracion', { activo: true, tamanoPagina: 100 }),
-      proveedores: this.lista<Opcion>('/api/proveedores', { activo: true, tamanoPagina: 100 }),
-      metodos: this.lista<Opcion>('/api/configuracion/metodos-pago', {}),
-      cuentasFinancieras: this.lista<Opcion>('/api/finanzas/cuentas', { tamanoPagina: 100 }),
-    }).subscribe((r) => {
-      this.clientes.set(r.clientes);
-      this.empleados.set(r.empleados);
-      this.articulos.set(r.articulos);
-      this.servicios.set(r.servicios);
-      this.proveedores.set(r.proveedores);
-      this.metodos.set(r.metodos);
-      this.cuentasFinancieras.set(r.cuentasFinancieras);
-    });
+  protected seleccionar(tipo: TipoReporte): void {
+    this.tipo.set(tipo);
+    this.valores.set({});
+    this.cliente.set(null);
+    this.resultado.set(null);
+    this.error.set(null);
+    this.mostrar.set(PASO_FILAS);
+    for (const f of this.definicion().filtros) this.cargarOpciones(f.fuente);
+    this.generar();
   }
 
-  private lista<T extends Opcion>(url: string, filtros: Record<string, string | number | boolean>) {
-    return this.http.get<unknown>(url, { context: SILENCIO(), params: parametros(filtros) }).pipe(
-      map((r) => normalizarPagina<T>(r, 100).elementos),
-      catchError(() => of([] as T[])),
-    );
+  protected opcionesDe(f: FiltroReporte): Opciones {
+    return f.fuente === 'fija' ? (f.opciones ?? []) : (this.opciones()[f.fuente] ?? []);
   }
 
-  protected cargarReporte(): void {
+  private cargarOpciones(fuente: FuenteOpciones): void {
+    if (fuente === 'fija' || fuente === 'clientes' || this.opciones()[fuente]) return;
+    const guardar = (lista: Opciones) => this.opciones.update((o) => ({ ...o, [fuente]: lista }));
+    const desdePagina = (url: string, extra: Record<string, string | number | boolean> = {}) =>
+      this.http
+        .get<unknown>(url, { ...this.silencio, params: parametros({ tamanoPagina: 100, ...extra }) })
+        .subscribe({ next: (r) => guardar(normalizarPagina<{ id: string; nombre: string }>(r).elementos.map((x) => ({ valor: x.id, etiqueta: x.nombre }))), error: () => guardar([]) });
+    switch (fuente) {
+      case 'empleados': this.catalogos.empleados().subscribe((l) => guardar((l ?? []).map((x) => ({ valor: x.id, etiqueta: x.nombre })))); break;
+      case 'metodosPago': this.catalogos.metodosPago().subscribe((l) => guardar((l ?? []).map((x) => ({ valor: x.id, etiqueta: x.nombre })))); break;
+      case 'servicios': desdePagina('/api/servicios/administracion'); break;
+      case 'articulos': desdePagina('/api/inventario/articulos'); break;
+      case 'proveedores': desdePagina('/api/proveedores'); break;
+    }
+  }
+
+  protected cambiarValor(param: string, valor: string): void {
+    this.valores.update((v) => ({ ...v, [param]: valor }));
+    this.generar();
+  }
+
+  protected cambiarFecha(campo: 'desde' | 'hasta', valor: string): void {
+    if (campo === 'desde') this.desde.set(valor);
+    else this.hasta.set(valor);
+    this.generar();
+  }
+
+  protected alElegirCliente(c: ClienteOpcion | null): void {
+    this.cliente.set(c);
+    this.generar();
+  }
+
+  private parametrosConsulta(extra: Record<string, string> = {}): HttpParams {
+    const d = this.definicion();
+    const base: Record<string, string | null> = { ...this.valores() };
+    if (d.fechas) {
+      base['desdeUtc'] = this.desde() ? inicioDiaUtc(this.desde()) : null;
+      // "hasta" incluye el día completo: se envía el último milisegundo de ese día.
+      base['hastaUtc'] = this.hasta() ? new Date(new Date(inicioDiaUtc(sumarDias(this.hasta(), 1))).getTime() - 1).toISOString() : null;
+    }
+    if (d.filtros.some((f) => f.param === 'clienteId') && this.cliente()) base['clienteId'] = this.cliente()!.id;
+    return parametros({ ...base, ...extra });
+  }
+
+  protected generar(): void {
+    if (this.rangoInvalido()) {
+      this.error.set('La fecha «hasta» no puede ser anterior a «desde».');
+      return;
+    }
     this.cargando.set(true);
     this.error.set(null);
-    this.http.get<Reporte>(`/api/reportes/${this.tipo()}`, { context: SILENCIO(), params: this.parametrosReporte() }).subscribe({
+    this.mostrar.set(PASO_FILAS);
+    const tipo = this.tipo();
+    this.http.get<RespuestaReporte>(`/api/reportes/${tipo}`, { ...this.silencio, params: this.parametrosConsulta() }).subscribe({
       next: (r) => {
-        this.reporte.set(r);
+        if (tipo !== this.tipo()) return; // el usuario cambió de informe mientras cargaba
+        this.resultado.set(r);
         this.cargando.set(false);
       },
       error: (err: unknown) => {
+        if (tipo !== this.tipo()) return;
         this.cargando.set(false);
-        this.error.set(mensajeDeError(err, 'No se pudo generar el reporte.'));
+        this.resultado.set(null);
+        this.error.set(mensajeDeError(err, 'No se pudo generar el informe.'));
       },
     });
   }
 
-  protected cambiarTipo(tipo: TipoReporte): void {
-    this.tipo.set(tipo);
-    this.estado.set('');
-    this.clienteId.set('');
-    this.empleadoId.set('');
-    this.articuloId.set('');
-    this.servicioId.set('');
-    this.proveedorId.set('');
-    this.metodoPagoId.set('');
-    this.cuentaFinancieraId.set('');
-    this.cargarReporte();
-  }
-
-  protected exportar(formato: FormatoExportacion): void {
+  protected exportar(formato: 'pdf' | 'xlsx' | 'csv'): void {
     this.exportando.set(formato);
-    this.http
-      .get(`/api/reportes/${this.tipo()}/exportar`, {
-        context: SILENCIO(),
-        params: this.parametrosReporte().set('formato', formato),
-        responseType: 'blob',
-      })
-      .subscribe({
-        next: (blob) => {
-          this.exportando.set(null);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `reporte-${this.tipo()}.${formato}`;
-          a.click();
-          URL.revokeObjectURL(url);
-        },
-        error: (err: unknown) => {
-          this.exportando.set(null);
-          this.notificaciones.error(mensajeDeError(err, 'No se pudo exportar el reporte.'));
-        },
-      });
-  }
-
-  private parametrosReporte() {
-    return parametros({
-      desdeUtc: this.desde() && this.tipo() !== 'inventario' ? inicioDiaUtc(this.desde()) : null,
-      hastaUtc: this.hasta() && this.tipo() !== 'inventario' ? inicioDiaUtc(sumarDias(this.hasta(), 1)) : null,
-      clienteId: this.admiteCliente() ? this.clienteId() : null,
-      empleadoId: this.admiteEmpleado() ? this.empleadoId() : null,
-      articuloId: this.admiteArticulo() ? this.articuloId() : null,
-      servicioId: this.admiteServicio() ? this.servicioId() : null,
-      proveedorId: this.tipo() === 'compras' ? this.proveedorId() : null,
-      metodoPagoId: this.tipo() === 'ingresos' ? this.metodoPagoId() : null,
-      cuentaFinancieraId: this.tipo() === 'cuentas' ? this.cuentaFinancieraId() : null,
-      estado: this.estadosDisponibles().length ? this.estado() : null,
-      limite: this.limite(),
+    descargarArchivo(this.http, `/api/reportes/${this.tipo()}/exportar`, `${this.tipo()}.${formato}`, this.parametrosConsulta({ formato })).subscribe({
+      next: () => this.exportando.set(null),
+      error: (err: unknown) => {
+        this.exportando.set(null);
+        this.notificaciones.error(mensajeDeError(err, 'No se pudo exportar el informe.'));
+      },
     });
   }
 
-  protected admiteCliente(): boolean {
-    return ['ventas', 'ingresos', 'clientes'].includes(this.tipo());
+  // ----- Presentación de celdas -----
+  protected etiqueta = etiquetaColumna;
+
+  protected celda(fila: { valores: Record<string, unknown> }, columna: string): string {
+    const v = fila.valores[columna];
+    if (v === null || v === undefined || v === '') return '—';
+    if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+    if (/Utc$/.test(columna) && typeof v === 'string') return formatearFechaHora(v);
+    if (COLUMNAS_DINERO.has(columna) && (typeof v === 'number' || typeof v === 'string')) return formatearMoneda(v, String(fila.valores['Moneda'] ?? 'COP'));
+    if (typeof v === 'number') return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 }).format(v);
+    return String(v);
   }
 
-  protected admiteEmpleado(): boolean {
-    return ['servicios', 'empleados', 'comisiones'].includes(this.tipo());
+  protected tono(fila: { valores: Record<string, unknown> }, columna: string): string | null {
+    const v = fila.valores[columna];
+    if (typeof v !== 'string') return null;
+    if (!['Estado', 'Tipo', 'Movimiento'].includes(columna)) return null;
+    return TONO_ESTADO[v] ?? 'gris';
   }
 
-  protected admiteArticulo(): boolean {
-    return ['productos', 'inventario'].includes(this.tipo());
+  protected alineada(columna: string, fila?: { valores: Record<string, unknown> }): boolean {
+    if (COLUMNAS_DINERO.has(columna)) return true;
+    const v = fila?.valores[columna];
+    return typeof v === 'number';
   }
 
-  protected admiteServicio(): boolean {
-    return ['servicios', 'comisiones'].includes(this.tipo());
+  protected totalFormateado(t: TotalReporte): string {
+    if (t.codigoMoneda) return formatearMoneda(t.valor, t.codigoMoneda);
+    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 }).format(numero(t.valor));
   }
 
-  protected estadosDisponibles(): string[] {
-    switch (this.tipo()) {
-      case 'ventas': return ['Finalizada', 'ParcialmenteDevuelta', 'Devuelta', 'Anulada'];
-      case 'compras': return ['Borrador', 'Confirmada'];
-      case 'caja': return ['Abierta', 'Cerrada'];
-      case 'comisiones': return ['Pendiente', 'Pagada', 'Revertida'];
-      default: return [];
-    }
+  protected masFilas(): void {
+    this.mostrar.update((n) => n + PASO_FILAS);
   }
 
-  protected valorFila(fila: FilaReporte, columna: string): string {
-    return this.valorTexto(fila.valores[columna]);
+  protected generadoEn(): string {
+    const r = this.resultado();
+    return r ? formatearFechaHora(r.generadoUtc) : '';
   }
 
-  protected valorTotal(total: TotalReporte): string {
-    if (total.codigoMoneda) return formatearMoneda(total.valor as number | string, total.codigoMoneda);
-    return this.valorTexto(total.valor);
-  }
-
-  protected valorTexto(valor: unknown): string {
-    if (valor === null || valor === undefined) return '—';
-    if (typeof valor === 'number') return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(valor);
-    if (typeof valor === 'boolean') return valor ? 'Sí' : 'No';
-    if (typeof valor === 'string') {
-      if (/^\d{4}-\d{2}-\d{2}T/.test(valor)) return formatearFechaHora(valor);
-      const n = Number(valor);
-      if (Number.isFinite(n) && /^-?\d+(\.\d+)?$/.test(valor)) return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(n);
-      return valor;
-    }
-    return String(valor);
-  }
-
-  protected cantidad(valor: number | string | null | undefined): string {
-    return new Intl.NumberFormat('es-CO').format(numero(valor));
+  protected num(v: number | string): number {
+    return numero(v);
   }
 }

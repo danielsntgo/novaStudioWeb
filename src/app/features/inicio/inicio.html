@@ -5,6 +5,19 @@
     <p class="fp-pagina__subtitulo">¿Qué quieres hacer hoy?</p>
   </header>
 
+  @if (resumen().length > 0) {
+    <section class="resumen" aria-label="Resumen de hoy">
+      @for (t of resumen(); track t.clave) {
+        <a class="dato" [class]="'dato dato--' + t.tono" [routerLink]="t.ruta">
+          <span class="dato__icono"><svg [app-icono]="t.icono" [tamano]="18"></svg></span>
+          <span class="dato__titulo">{{ t.titulo }}</span>
+          <strong class="dato__valor">{{ t.valor }}</strong>
+          <span class="dato__detalle">{{ t.detalle }}</span>
+        </a>
+      }
+    </section>
+  }
+
   @if (sinRol()) {
     <div class="fp-alerta" role="alert">
       <svg app-icono="alerta" [tamano]="18"></svg>
@@ -14,6 +27,7 @@
       </span>
     </div>
   } @else {
+    <h2 class="subtitulo">Accesos rápidos</h2>
     <section class="rejilla" aria-label="Accesos rápidos">
       @for (acceso of accesos(); track acceso.ruta) {
         <a class="acceso fp-tarjeta" [routerLink]="'/' + acceso.ruta">

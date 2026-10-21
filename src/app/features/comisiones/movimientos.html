@@ -1,0 +1,105 @@
+<div class="fp-herramientas">
+  <select class="fp-input fp-select filtro" aria-label="Empleado" [ngModel]="empleadoId()" (ngModelChange)="filtrar('empleado', $event)">
+    <option value="">Todos los empleados</option>
+    @for (e of empleados(); track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
+  </select>
+  <select class="fp-input fp-select filtro" aria-label="Estado" [ngModel]="estado()" (ngModelChange)="filtrar('estado', $event)">
+    <option value="">Todos los estados</option>
+    @for (e of estados; track e.valor) { <option [value]="e.valor">{{ e.texto }}</option> }
+  </select>
+  <select class="fp-input fp-select filtro" aria-label="Tipo de movimiento" [ngModel]="tipo()" (ngModelChange)="filtrar('tipo', $event)">
+    <option value="">Servicios y ajustes</option>
+    <option value="DevengoServicio">Servicios vendidos</option>
+    <option value="AjusteDevolucion">Ajustes por devolución</option>
+  </select>
+  <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="filtrar('desde', $event)" /></label>
+  <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="filtrar('hasta', $event)" /></label>
+</div>
+
+@if (error(); as mensaje) {
+  <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargar()">Reintentar</button></div>
+}
+
+@if (seleccion().size > 0) {
+  <div class="barra-seleccion" role="status">
+    <span><strong>{{ seleccion().size }}</strong> {{ seleccion().size === 1 ? 'comisión seleccionada' : 'comisiones seleccionadas' }} de <strong>{{ nombreEmpleado(empleadoSeleccion()) }}</strong> · {{ dinero(totalSeleccion(), monedaSeleccion()) }}</span>
+    <div>
+      <button type="button" class="fp-enlace" (click)="seleccion.set(emptySet())">Quitar selección</button>
+      <button type="button" class="fp-boton fp-boton--pequeno" (click)="abrirLiquidacion()">Liquidar</button>
+    </div>
+  </div>
+} @else {
+  <p class="pista">Marca los servicios pendientes de <strong>un mismo empleado</strong> para liquidarlos en un solo pago.</p>
+}
+
+<section class="fp-tarjeta fp-tarjeta--plana" [attr.aria-busy]="cargando()">
+  <div class="contenedor">
+    <table>
+      <thead>
+        <tr>
+          <th class="chk"><span class="sr">Seleccionar</span></th>
+          <th>Fecha</th><th>Empleado</th><th>Movimiento</th><th class="mov">Base</th><th>Estado</th><th class="der">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (cargando() && filas().length === 0) {
+          @for (n of [1, 2, 3, 4]; track n) { <tr class="esqueleto" aria-hidden="true"><td colspan="7"><span class="barra"></span></td></tr> }
+        } @else {
+          @for (m of filas(); track m.id) {
+            <tr [class.seleccionada]="seleccion().has(m.id)" [class.recargando]="cargando()">
+              <td class="chk">
+                @if (esLiquidable(m)) {
+                  <input type="checkbox" [checked]="seleccion().has(m.id)" [disabled]="!puedeMarcar(m)" (change)="alternar(m)" [attr.aria-label]="'Seleccionar comisión de ' + nombreEmpleado(m.empleadoId)" />
+                }
+              </td>
+              <td>{{ fechaHora(m.fechaCreacionUtc) }}</td>
+              <td>{{ nombreEmpleado(m.empleadoId) }}</td>
+              <td>
+                <span class="principal">{{ tiposMov[m.tipoMovimiento] ?? m.tipoMovimiento }}</span>
+                <span class="sec">{{ m.tipoTarifa === 'Porcentaje' ? (m.valorTarifa + ' %') : (dinero(m.valorTarifa, m.codigoMoneda) + ' c/u') }} · cant. {{ cantidad(m.cantidad) }}</span>
+              </td>
+              <td class="mov der">{{ dinero(m.baseCalculo, m.codigoMoneda) }}</td>
+              <td><span class="fp-insignia" [class]="'fp-insignia fp-insignia--' + tono(m.estado)">{{ textoEstado(m.estado) }}</span></td>
+              <td class="der" [class.negativo]="m.tipoMovimiento === 'AjusteDevolucion'">{{ m.tipoMovimiento === 'AjusteDevolucion' ? '−' : '' }}{{ dinero(m.importe, m.codigoMoneda) }}</td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+    @if (!cargando() && filas().length === 0) {
+      <div class="vacio"><p class="vacio__titulo">No hay comisiones con estos filtros</p><p class="vacio__detalle">Las comisiones se generan al vender servicios con empleado y tarifa activa.</p></div>
+    }
+  </div>
+  <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
+</section>
+
+<app-dialogo [abierto]="dialogo()" titulo="Liquidar comisiones" (cerrar)="cerrarDialogo()">
+  @if (dialogo()) {
+    <p class="resumen">Pagarás <strong>{{ dinero(totalSeleccion(), monedaSeleccion()) }}</strong> a <strong>{{ nombreEmpleado(empleadoSeleccion()) }}</strong> por {{ seleccion().size }} {{ seleccion().size === 1 ? 'servicio' : 'servicios' }}. El sistema descuenta automáticamente los ajustes por devoluciones; el importe final puede ser menor.</p>
+    @if (metodos() === undefined) {
+      <p class="fp-texto-tenue">Cargando métodos de pago…</p>
+    } @else if (metodos() === null) {
+      <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>No se pudieron consultar los métodos de pago.</span></div>
+    } @else {
+      @if (errorEnvio()) { <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ errorEnvio() }}</span></div> }
+      <div class="fp-campo">
+        <label class="fp-etiqueta" for="liq-metodo">Método de pago</label>
+        <select id="liq-metodo" class="fp-input fp-select" [ngModel]="metodoId()" (ngModelChange)="metodoId.set($event)">
+          @for (m of metodos() ?? []; track m.id) { <option [value]="m.id">{{ m.nombre }}</option> }
+        </select>
+        @if (metodo()?.esEfectivo) { <span class="ayuda">Pago en efectivo: requiere una caja abierta y reduce el efectivo esperado.</span> }
+      </div>
+      @if (metodo()?.requiereReferencia) {
+        <div class="fp-campo">
+          <label class="fp-etiqueta" for="liq-ref">Referencia <span class="obligatorio">*</span></label>
+          <input id="liq-ref" class="fp-input" type="text" [ngModel]="referencia()" (ngModelChange)="referencia.set($event)" />
+        </div>
+      }
+      @if (problema(); as p) { <p class="fp-campo__error">{{ p }}</p> }
+    }
+  }
+  <div pie class="botones-pie">
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="cerrarDialogo()" [disabled]="enviando()">Cancelar</button>
+    <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" [disabled]="enviando() || problema() !== null || !metodos()" (click)="liquidar()">Registrar pago</button>
+  </div>
+</app-dialogo>

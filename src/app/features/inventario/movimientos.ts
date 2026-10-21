@@ -32,6 +32,8 @@ const TIPOS: Record<string, { texto: string; tono: 'azul' | 'exito' | 'aviso'; s
   EntradaCompra: { texto: 'Entrada por compra', tono: 'azul', signo: '+' },
   EntradaAjuste: { texto: 'Entrada por ajuste', tono: 'exito', signo: '+' },
   SalidaAjuste: { texto: 'Salida por ajuste', tono: 'aviso', signo: '−' },
+  SalidaVenta: { texto: 'Salida por venta', tono: 'aviso', signo: '−' },
+  EntradaDevolucion: { texto: 'Entrada por devolución', tono: 'exito', signo: '+' },
 };
 
 @Component({

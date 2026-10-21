@@ -1,0 +1,232 @@
+<div class="pos">
+  <!-- ====== Catálogo ====== -->
+  <section class="catalogo">
+    <header class="encabezado">
+      <div>
+        <a class="volver" routerLink="/ventas"><svg app-icono="flecha-izquierda" [tamano]="14"></svg> Ventas</a>
+        <h1>Nueva venta</h1>
+      </div>
+      @if (caja() === null) {
+        <a class="estado-caja estado-caja--cerrada" routerLink="/caja"><svg app-icono="alerta" [tamano]="16"></svg> Caja cerrada</a>
+      } @else if (caja()) {
+        <span class="estado-caja estado-caja--abierta"><svg app-icono="check" [tamano]="16"></svg> Caja abierta</span>
+      }
+    </header>
+
+    @if (caja() === null) {
+      <div class="bloqueo fp-tarjeta">
+        <span class="bloqueo__icono"><svg app-icono="cartera" [tamano]="26"></svg></span>
+        <div>
+          <h2>Abre la caja para vender</h2>
+          <p>Las ventas se registran sobre una caja abierta, para que cada cobro en efectivo quede en el arqueo.</p>
+        </div>
+        <a class="fp-boton" routerLink="/caja">Ir a Caja</a>
+      </div>
+    }
+
+    <label class="buscador">
+      <svg app-icono="buscar" [tamano]="18"></svg>
+      <input type="search" class="fp-input" placeholder="Buscar servicio o producto" aria-label="Buscar servicio o producto" [ngModel]="busqueda()" (ngModelChange)="buscar($event)" />
+    </label>
+
+    <div class="fp-segmento pestanas" role="tablist" aria-label="Catálogo">
+      <button type="button" role="tab" [class.activo]="pestana() === 'servicios'" [attr.aria-selected]="pestana() === 'servicios'" (click)="pestana.set('servicios')">Servicios</button>
+      <button type="button" role="tab" [class.activo]="pestana() === 'productos'" [attr.aria-selected]="pestana() === 'productos'" (click)="pestana.set('productos')">Productos</button>
+    </div>
+
+    @if (pestana() === 'servicios') {
+      <div class="rejilla" [class.cargando]="cargandoCatalogo()">
+        @for (s of servicios(); track s.id) {
+          <button type="button" class="tarjeta-item" [disabled]="!caja()" (click)="agregarServicio(s)">
+            <span class="tarjeta-item__nombre">{{ s.nombre }}</span>
+            <span class="tarjeta-item__detalle">{{ s.categoria || 'Servicio' }} · {{ num(s.duracionMinutos) }} min</span>
+            <span class="tarjeta-item__precio">{{ dinero(s.precio) }}</span>
+          </button>
+        } @empty {
+          @if (!cargandoCatalogo()) { <p class="vacio">No hay servicios que coincidan.</p> }
+        }
+      </div>
+    } @else {
+      @if (productos() === null) {
+        <div class="fp-alerta" role="status"><svg app-icono="info" [tamano]="18"></svg><span>Tu rol no puede consultar el catálogo de productos, por eso solo puedes vender servicios. Pide al administrador que habilite esa consulta.</span></div>
+      } @else {
+        <div class="rejilla" [class.cargando]="cargandoCatalogo()">
+          @for (a of productos() ?? []; track a.id) {
+            <button type="button" class="tarjeta-item" [disabled]="!caja() || (num(a.existenciaActual) <= 0 && !sinStockPermitido())" (click)="agregarProducto(a)">
+              <span class="tarjeta-item__nombre">{{ a.nombre }}</span>
+              <span class="tarjeta-item__detalle" [class.agotado]="num(a.existenciaActual) <= 0">
+                {{ num(a.existenciaActual) <= 0 ? 'Agotado' : cantidadTexto(a.existenciaActual, a.manejaFraccion) + ' ' + a.unidadBase + ' disponibles' }}
+              </span>
+              <span class="tarjeta-item__precio">{{ dinero(a.precioVenta) }}</span>
+            </button>
+          } @empty {
+            @if (!cargandoCatalogo()) { <p class="vacio">No hay productos que coincidan.</p> }
+          }
+        </div>
+      }
+    }
+  </section>
+
+  <!-- ====== Carrito ====== -->
+  <aside class="carrito fp-tarjeta" aria-label="Venta en curso">
+    <header class="carrito__cabecera">
+      <h2>Venta actual</h2>
+      @if (lineas().length > 0) { <button type="button" class="fp-enlace fp-enlace--peligro" (click)="vaciar()">Vaciar</button> }
+    </header>
+
+    <div class="fp-campo">
+      <label class="fp-etiqueta" for="pos-cliente">Cliente (opcional)</label>
+      <app-selector-cliente inputId="pos-cliente" marcador="Cliente general" [(valor)]="cliente" />
+    </div>
+
+    @if (lineas().length === 0) {
+      <div class="carrito__vacio"><svg app-icono="bolsa" [tamano]="28"></svg><p>Toca un servicio o producto para agregarlo.</p></div>
+    } @else {
+      <ul class="lineas">
+        @for (l of lineas(); track l.clave) {
+          <li class="linea">
+            <div class="linea__principal">
+              <div class="linea__nombre"><strong>{{ l.nombre }}</strong><small>{{ dinero(l.precio) }} / {{ l.unidad }}</small></div>
+              <strong class="linea__total">{{ dinero(totalLinea(l.clave)) }}</strong>
+            </div>
+            <div class="linea__controles">
+              <div class="cantidad">
+                <button type="button" (click)="sumar(l, -1)" [attr.aria-label]="'Quitar una unidad de ' + l.nombre">−</button>
+                <input type="number" min="0" [step]="l.manejaFraccion ? 'any' : 1" inputmode="decimal" [attr.aria-label]="'Cantidad de ' + l.nombre" [ngModel]="l.cantidad" (ngModelChange)="cambiarCantidad(l.clave, $event)" />
+                <button type="button" (click)="sumar(l, 1)" [attr.aria-label]="'Agregar una unidad de ' + l.nombre">+</button>
+              </div>
+              <button type="button" class="fp-enlace" (click)="cambiarLinea(l.clave, { ajustes: !l.ajustes })" [attr.aria-expanded]="l.ajustes">{{ l.ajustes ? 'Ocultar ajustes' : 'Ajustes' }}</button>
+              <button type="button" class="quitar" (click)="quitar(l.clave)" [attr.aria-label]="'Quitar ' + l.nombre"><svg app-icono="cerrar" [tamano]="15"></svg></button>
+            </div>
+            @if (l.ajustes || (l.tipo === 'Servicio' && exigirEmpleado() && !l.empleadoId)) {
+              <div class="ajustes">
+                @if (l.tipo === 'Servicio') {
+                  <div class="fp-campo ancho">
+                    <label class="fp-etiqueta" [for]="'emp-' + l.clave">Lo realiza @if (exigirEmpleado()) { <span class="obligatorio">*</span> }</label>
+                    @if (empleados() === null) {
+                      <span class="ayuda">Tu rol no puede consultar la lista de empleados.</span>
+                    } @else {
+                      <select [id]="'emp-' + l.clave" class="fp-input fp-select" [ngModel]="l.empleadoId" (ngModelChange)="cambiarLinea(l.clave, { empleadoId: $event })">
+                        <option value="">{{ exigirEmpleado() ? 'Selecciona un empleado' : 'Sin asignar' }}</option>
+                        @for (e of empleados() ?? []; track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
+                      </select>
+                    }
+                  </div>
+                }
+                @if (l.ajustes) {
+                  <div class="fp-campo">
+                    <label class="fp-etiqueta" [for]="'dt-' + l.clave">Descuento</label>
+                    <select [id]="'dt-' + l.clave" class="fp-input fp-select" [ngModel]="l.descuentoTipo" (ngModelChange)="cambiarLinea(l.clave, { descuentoTipo: $event })">
+                      <option value="">Ninguno</option>
+                      <option value="Porcentaje">Porcentaje (%)</option>
+                      <option value="ImporteFijo">Valor fijo</option>
+                    </select>
+                  </div>
+                  @if (l.descuentoTipo) {
+                    <div class="fp-campo">
+                      <label class="fp-etiqueta" [for]="'dv-' + l.clave">{{ l.descuentoTipo === 'Porcentaje' ? 'Porcentaje' : 'Valor' }}</label>
+                      <input [id]="'dv-' + l.clave" type="number" min="0" step="any" class="fp-input" [ngModel]="l.descuentoValor" (ngModelChange)="cambiarLinea(l.clave, { descuentoValor: $event })" />
+                    </div>
+                  }
+                  @if ((impuestos() ?? []).length > 0) {
+                    <div class="fp-campo ancho">
+                      <label class="fp-etiqueta" [for]="'im-' + l.clave">Impuesto</label>
+                      <select [id]="'im-' + l.clave" class="fp-input fp-select" [ngModel]="l.impuestoId" (ngModelChange)="cambiarLinea(l.clave, { impuestoId: $event })">
+                        <option value="">Sin impuesto</option>
+                        @for (i of impuestos() ?? []; track i.id) { <option [value]="i.id">{{ i.nombre }} ({{ num(i.porcentaje) }} %)</option> }
+                      </select>
+                    </div>
+                  }
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+
+      <!-- Descuento general e impuesto global -->
+      <div class="generales">
+        <div class="fp-campo">
+          <label class="fp-etiqueta" for="dg-tipo">Descuento general</label>
+          <select id="dg-tipo" class="fp-input fp-select" [ngModel]="descGeneralTipo()" (ngModelChange)="descGeneralTipo.set($event)">
+            <option value="">Ninguno</option>
+            <option value="Porcentaje">Porcentaje (%)</option>
+            <option value="ImporteFijo">Valor fijo</option>
+          </select>
+        </div>
+        @if (descGeneralTipo()) {
+          <div class="fp-campo">
+            <label class="fp-etiqueta" for="dg-valor">{{ descGeneralTipo() === 'Porcentaje' ? 'Porcentaje' : 'Valor' }}</label>
+            <input id="dg-valor" type="number" min="0" step="any" class="fp-input" [ngModel]="descGeneralValor()" (ngModelChange)="descGeneralValor.set($event)" />
+          </div>
+        }
+        @if ((impuestos() ?? []).length > 0) {
+          <div class="fp-campo ancho">
+            <label class="fp-etiqueta" for="imp-global">Impuesto para todas las líneas</label>
+            <select id="imp-global" class="fp-input fp-select" (change)="aplicarImpuestoATodas($any($event.target).value)">
+              <option value="">Sin impuesto</option>
+              @for (i of impuestos() ?? []; track i.id) { <option [value]="i.id">{{ i.nombre }} ({{ num(i.porcentaje) }} %)</option> }
+            </select>
+          </div>
+        }
+      </div>
+
+      <!-- Totales -->
+      <dl class="totales">
+        <div><dt>Subtotal</dt><dd>{{ dinero(calculo().subtotal) }}</dd></div>
+        @if (calculo().descuentos > 0) { <div><dt>Descuentos</dt><dd>−{{ dinero(calculo().descuentos) }}</dd></div> }
+        @if (calculo().impuestos > 0) { <div><dt>Impuestos</dt><dd>{{ dinero(calculo().impuestos) }}</dd></div> }
+        <div class="gran-total"><dt>Total estimado</dt><dd>{{ dinero(calculo().total) }}</dd></div>
+      </dl>
+      <p class="nota">El sistema recalcula el total final al registrar la venta.</p>
+
+      <!-- Pagos -->
+      <h3 class="titulo-seccion">Cobro</h3>
+      @if (metodos() === null) {
+        <div class="fp-alerta" role="status"><svg app-icono="info" [tamano]="18"></svg><span>Tu rol no puede consultar los métodos de pago, por eso no se puede registrar el cobro.@if (permitirSaldos()) { Puedes dejar la venta con saldo pendiente. }</span></div>
+      } @else if (metodos() !== undefined) {
+        <app-pagos-editor [pagos]="pagos()" (pagosChange)="alEditarPagos($event)" [metodos]="metodos() ?? []" [moneda]="moneda()" [permitirVaciar]="true" />
+        @if (saldo() > 0.005) {
+          <p class="saldo saldo--pendiente">Saldo pendiente: <strong>{{ dinero(saldo()) }}</strong>@if (!permitirSaldos()) { <small> · no permitido en esta tienda</small> }</p>
+        } @else if (saldo() < -0.005) {
+          <p class="saldo saldo--exceso">Los pagos superan el total por <strong>{{ dinero(-saldo()) }}</strong></p>
+        }
+        @if (!pagoAutoActivo()) { <button type="button" class="fp-enlace" (click)="cobrarTodoEnUno()">Cobrar todo con un solo método</button> }
+      }
+
+      @if (facturacion()) {
+        <label class="casilla"><input type="checkbox" [ngModel]="solicitarFactura()" (ngModelChange)="solicitarFactura.set($event)" /><span>Generar también una factura</span></label>
+      }
+
+      @if (error()) { <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div> }
+      @if (problema(); as p) { <p class="fp-campo__error">{{ p }}</p> }
+
+      <button type="button" class="fp-boton fp-boton--bloque cobrar" [class.fp-cargando]="enviando()" [disabled]="problema() !== null || enviando()" (click)="cobrar()">
+        {{ enviando() ? 'Registrando…' : 'Registrar venta · ' + dinero(calculo().total) }}
+      </button>
+    }
+  </aside>
+</div>
+
+<!-- ====== Venta registrada ====== -->
+<app-dialogo [abierto]="resultado() !== null" titulo="Venta registrada" [conCierre]="false" (cerrar)="nuevaVenta()">
+  @if (resultado(); as v) {
+    <div class="exito">
+      <span class="exito__icono"><svg app-icono="check" [tamano]="26"></svg></span>
+      <p class="exito__total">{{ dinero(v.total) }}</p>
+      <p class="exito__detalle">
+        @if (comprobante(v); as c) { Comprobante <strong>{{ c.numeroCompleto }}</strong> }
+        @if (factura(v); as f) { · Factura <strong>{{ f.numeroCompleto }}</strong> }
+      </p>
+      @if (num(v.totalPendiente) > 0) { <p class="exito__pendiente">Saldo pendiente: <strong>{{ dinero(v.totalPendiente) }}</strong>. Puedes registrar abonos desde el historial de ventas.</p> }
+    </div>
+    <div class="exito__docs">
+      <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="descargando() !== null" (click)="descargar('comprobante')">{{ descargando() === 'comprobante' ? 'Descargando…' : 'Descargar comprobante' }}</button>
+      @if (factura(v)) { <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="descargando() !== null" (click)="descargar('factura')">{{ descargando() === 'factura' ? 'Descargando…' : 'Descargar factura' }}</button> }
+    </div>
+  }
+  <div pie class="botones-pie">
+    <a class="fp-boton fp-boton--secundario" routerLink="/ventas">Ver ventas</a>
+    <button type="button" class="fp-boton" (click)="nuevaVenta()">Nueva venta</button>
+  </div>
+</app-dialogo>

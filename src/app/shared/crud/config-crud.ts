@@ -50,7 +50,7 @@ export interface ConfigCrud<T extends { id: string; activo?: boolean }> {
   filtros?: FiltroCrud[];
 
   columnas: Columna<T>[];
-  campos: CampoForm[] | (() => CampoForm[]);
+  campos: CampoForm[];
   aFormulario?: (fila: T) => Record<string, unknown>;
 
   puedeCrear: boolean;

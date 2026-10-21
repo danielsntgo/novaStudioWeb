@@ -2,95 +2,101 @@
   <header class="fp-pagina__cabecera">
     <div>
       <h1 class="fp-pagina__titulo">Caja</h1>
-      <p class="fp-pagina__subtitulo">Apertura, movimientos manuales y arqueo del efectivo.</p>
+      <p class="fp-pagina__subtitulo">Apertura, movimientos de efectivo y arqueo al cierre.</p>
     </div>
-    <button type="button" class="fp-boton" [disabled]="actual() !== null" (click)="abrir('apertura')"><svg app-icono="cartera" [tamano]="18"></svg> Abrir caja</button>
   </header>
 
-  <section class="estado fp-tarjeta" [attr.aria-busy]="cargandoActual()">
-    @if (errorActual(); as mensaje) {
-      <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarActual()">Reintentar</button></div>
-    } @else if (cargandoActual()) {
-      <p class="fp-texto-tenue">Consultando caja actual...</p>
-    } @else if (actual(); as caja) {
-      <div>
-        <span class="fp-insignia fp-insignia--exito">Caja abierta</span>
-        <h2>{{ monto(caja.efectivoEsperado) }}</h2>
-        <p>Esperado ahora · apertura {{ fecha(caja.fechaAperturaUtc) }}</p>
-      </div>
-      <div class="estado__acciones">
-        <button type="button" class="fp-boton fp-boton--secundario" (click)="abrir('movimiento')"><svg app-icono="mas" [tamano]="17"></svg> Movimiento</button>
-        <button type="button" class="fp-boton" (click)="abrir('cierre')"><svg app-icono="check" [tamano]="17"></svg> Cerrar caja</button>
-        <button type="button" class="fp-enlace" (click)="abrirDetalle(caja.id)">Ver detalle</button>
-      </div>
-    } @else {
-      <div>
-        <span class="fp-insignia fp-insignia--aviso">Sin caja abierta</span>
-        <h2>No hay caja activa</h2>
-        <p>Abre una caja para registrar ventas y movimientos de efectivo.</p>
-      </div>
-    }
-  </section>
-
-  <div class="fp-herramientas historial-herramientas">
-    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiarFecha('desde', $event)" /></label>
-    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiarFecha('hasta', $event)" /></label>
-    <button type="button" class="fp-enlace" (click)="cargarHistorial()"><svg app-icono="refrescar" [tamano]="16"></svg> Actualizar</button>
-  </div>
-
-  @if (errorHistorial(); as mensaje) {
-    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarHistorial()">Reintentar</button></div>
+  @if (errorActual(); as mensaje) {
+    <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarActual()">Reintentar</button></div>
   }
 
+  <!-- Estado de la caja actual -->
+  @if (cargandoActual()) {
+    <section class="fp-tarjeta estado estado--carga" aria-busy="true"><span class="barra"></span></section>
+  } @else if (actual(); as c) {
+    <section class="fp-tarjeta estado estado--abierta">
+      <div class="estado__cabecera">
+        <div>
+          <span class="fp-insignia fp-insignia--exito">Caja abierta</span>
+          <p class="estado__desde">Desde {{ fechaHora(c.fechaAperturaUtc) }}</p>
+        </div>
+        <div class="estado__acciones">
+          <button type="button" class="fp-boton fp-boton--secundario" (click)="abrirDialogo('movimiento')">Ingreso o egreso</button>
+          <button type="button" class="fp-boton" (click)="abrirDialogo('cierre')">Cerrar caja</button>
+        </div>
+      </div>
+      <div class="cifras">
+        <div class="cifra"><span class="cifra__etq">Efectivo inicial</span><strong>{{ dinero(c.efectivoApertura) }}</strong></div>
+        <div class="cifra cifra--principal"><span class="cifra__etq">Efectivo esperado ahora</span><strong>{{ dinero(esperadoActual()) }}</strong></div>
+        <div class="cifra"><span class="cifra__etq">Movimientos</span><strong>{{ movimientos().length }}</strong></div>
+      </div>
+    </section>
+
+    <h2 class="subtitulo">Movimientos de esta caja</h2>
+    <section class="fp-tarjeta fp-tarjeta--plana">
+      <app-tabla [columnas]="columnasMovimientos" [filas]="movimientos()" vacioTitulo="Aún no hay movimientos" vacioDetalle="Los cobros en efectivo y los ingresos o egresos manuales aparecerán aquí." />
+    </section>
+  } @else {
+    <section class="fp-tarjeta estado estado--cerrada">
+      <div class="estado__vacio">
+        <span class="estado__icono"><svg app-icono="cartera" [tamano]="28"></svg></span>
+        <h2>No hay una caja abierta</h2>
+        <p>Abre la caja para poder registrar ventas y cobros en el sistema.</p>
+        <button type="button" class="fp-boton" (click)="abrirDialogo('abrir')"><svg app-icono="mas" [tamano]="18"></svg> Abrir caja</button>
+      </div>
+    </section>
+  }
+
+  <!-- Historial -->
+  <h2 class="subtitulo">Historial de cajas</h2>
+  <div class="fp-herramientas">
+    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiarFecha('desde', $event)" /></label>
+    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiarFecha('hasta', $event)" /></label>
+  </div>
   <section class="fp-tarjeta fp-tarjeta--plana">
-    <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargandoHistorial()" vacioTitulo="Sin cajas en el período" vacioDetalle="Cambia el rango de fechas o abre una caja nueva.">
-      <ng-template #acciones let-fila>
-        <button type="button" class="fp-enlace" (click)="abrirDetalle(fila.id)">Detalle</button>
-      </ng-template>
+    <app-tabla [columnas]="columnasHistorial" [filas]="historial()" [cargando]="cargandoHistorial()" vacioTitulo="Sin cajas en este rango" vacioDetalle="Cuando abras y cierres cajas, quedarán registradas aquí.">
+      <ng-template #acciones let-fila><button type="button" class="fp-enlace" (click)="verDetalle(fila)">Ver detalle</button></ng-template>
     </app-tabla>
-    <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
+    <app-paginador [pagina]="pagina()" [tamano]="10" [total]="total()" (cambio)="irA($event)" />
   </section>
 </div>
 
-<app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" (cerrar)="cerrarPanel()">
-  @if (panel(); as p) {
-    @if (p.tipo === 'detalle') {
-      @if (errorEnvio(); as mensaje) { <div class="fp-alerta" role="alert">{{ mensaje }}</div> }
-      @if (cargandoDetalle()) {
-        <p class="fp-texto-tenue">Cargando detalle...</p>
-      } @else if (detalle(); as d) {
-        <div class="detalle">
-          <div class="resumen">
-            <div><span>Estado</span><strong>{{ d.caja.estado }}</strong></div>
-            <div><span>Apertura</span><strong>{{ monto(d.caja.efectivoApertura) }}</strong></div>
-            <div><span>Esperado</span><strong>{{ monto(d.caja.efectivoEsperado) }}</strong></div>
-            <div><span>Diferencia</span><strong>{{ monto(d.caja.diferenciaCierre) }}</strong></div>
-          </div>
-          <h3>Movimientos</h3>
-          <div class="movimientos">
-            @for (m of d.movimientos; track m.id) {
-              <article>
-                <div>
-                  <strong>{{ m.tipo }}</strong>
-                  <span>{{ fecha(m.fechaUtc) }} · {{ m.concepto ?? 'Sin concepto' }}</span>
-                </div>
-                <b>{{ formatearMoneda(m.importe, m.codigoMoneda) }}</b>
-              </article>
-            } @empty {
-              <p class="fp-texto-tenue">Esta caja todavía no tiene movimientos.</p>
-            }
-          </div>
-        </div>
-      }
-    } @else {
-      <app-formulario-dinamico
-        [campos]="camposPanel()"
-        [enviando]="enviando()"
-        [error]="errorEnvio()"
-        [textoGuardar]="textoGuardar()"
-        (guardar)="guardar($event)"
-        (cancelar)="cerrarPanel()"
-      />
-    }
+<!-- Apertura -->
+<app-dialogo [abierto]="dialogo() === 'abrir'" titulo="Abrir caja" (cerrar)="cerrarDialogo()">
+  @if (dialogo() === 'abrir') {
+    <app-formulario-dinamico [campos]="camposApertura" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" textoGuardar="Abrir caja" (guardar)="abrirCaja($event)" (cancelar)="cerrarDialogo()" />
+  }
+</app-dialogo>
+
+<!-- Movimiento manual -->
+<app-dialogo [abierto]="dialogo() === 'movimiento'" titulo="Ingreso o egreso de efectivo" (cerrar)="cerrarDialogo()">
+  @if (dialogo() === 'movimiento') {
+    <app-formulario-dinamico [campos]="camposMovimiento" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" textoGuardar="Registrar" (guardar)="registrarMovimiento($event)" (cancelar)="cerrarDialogo()" />
+  }
+</app-dialogo>
+
+<!-- Cierre -->
+<app-dialogo [abierto]="dialogo() === 'cierre'" titulo="Cerrar caja" (cerrar)="cerrarDialogo()">
+  @if (dialogo() === 'cierre') {
+    <p class="esperado">Efectivo esperado: <strong>{{ dinero(esperadoActual()) }}</strong></p>
+    <app-formulario-dinamico [campos]="camposCierre" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" textoGuardar="Continuar" (guardar)="cerrarCaja($event)" (cancelar)="cerrarDialogo()" />
+  }
+</app-dialogo>
+
+<!-- Detalle de una caja -->
+<app-panel-lateral [abierto]="detalle() !== null" [titulo]="tituloDetalle()" subtitulo="Resumen y movimientos" (cerrar)="detalle.set(null)">
+  @if (detalle(); as d) {
+    <div class="resumen">
+      <div><span class="etq">Efectivo inicial</span><strong>{{ dinero(d.caja.efectivoApertura) }}</strong></div>
+      <div><span class="etq">Esperado</span><strong>{{ d.caja.efectivoEsperado == null ? '—' : dinero(d.caja.efectivoEsperado) }}</strong></div>
+      <div><span class="etq">Contado</span><strong>{{ d.caja.efectivoContadoCierre == null ? '—' : dinero(d.caja.efectivoContadoCierre) }}</strong></div>
+      <div [class.falta]="(diferenciaDe(d.caja) ?? 0) < 0" [class.sobra]="(diferenciaDe(d.caja) ?? 0) > 0">
+        <span class="etq">Diferencia</span><strong>{{ d.caja.diferenciaCierre == null ? '—' : dinero(d.caja.diferenciaCierre) }}</strong>
+      </div>
+    </div>
+    <p class="fechas">Abierta: {{ fechaHora(d.caja.fechaAperturaUtc) }}@if (d.caja.fechaCierreUtc) { · Cerrada: {{ fechaHora(d.caja.fechaCierreUtc) }} }</p>
+    <section class="fp-tarjeta fp-tarjeta--plana">
+      <app-tabla [columnas]="columnasMovimientos" [filas]="d.movimientos" [cargando]="cargandoDetalle()" vacioTitulo="Sin movimientos" />
+    </section>
   }
 </app-panel-lateral>

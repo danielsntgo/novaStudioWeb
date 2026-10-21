@@ -176,11 +176,53 @@ td small {
 }
 
 .filtros-movimientos {
-  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+  grid-template-columns: minmax(190px, 1.35fr) repeat(3, minmax(140px, 1fr)) auto;
 }
 
 .tabla-movimientos table {
   min-width: 1000px;
+}
+
+.tabla-transferencias {
+  min-width: 760px;
+}
+
+.cuenta-seleccionada {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 0 2px 12px;
+  color: var(--fp-texto-suave);
+  font-size: 13px;
+}
+
+.cuenta-seleccionada strong {
+  color: var(--fp-texto);
+}
+
+.nota-intro {
+  margin: 0 0 14px;
+  color: var(--fp-texto-suave);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.estado-vacio {
+  padding: 28px;
+  text-align: center;
+}
+
+.estado-vacio h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.estado-vacio p {
+  max-width: 560px;
+  margin: 8px auto 18px;
+  color: var(--fp-texto-suave);
+  line-height: 1.5;
 }
 
 @media (max-width: 900px) {
@@ -197,6 +239,12 @@ td small {
   .filtros,
   .filtros-movimientos {
     grid-template-columns: 1fr;
+  }
+
+  .cuenta-seleccionada {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .resumen strong {

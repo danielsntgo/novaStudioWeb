@@ -1,872 +1,117 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subject, catchError, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap, tap } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
 import { Pagina, normalizarPagina, numero, parametros } from '../../core/api/paginas';
 import { mensajeDeError } from '../../core/api/problema';
-import { SesionService } from '../../core/auth/sesion.service';
-import { ConfirmacionService } from '../../core/confirmacion/confirmacion.service';
-import { NotificacionesService } from '../../core/notificaciones/notificaciones.service';
 import { formatearFechaHora, inicioDiaUtc, sumarDias } from '../../core/tiempo/zona';
 import { Icono } from '../../shared/componentes/icono';
 import { PanelLateral } from '../../shared/componentes/panel-lateral';
 import { Paginador } from '../../shared/componentes/paginador';
-import { Columna, Tabla, TonoInsignia } from '../../shared/componentes/tabla';
-import { CampoForm, OpcionCampo } from '../../shared/formularios/campos';
-import { FormularioDinamico } from '../../shared/formularios/formulario-dinamico';
-import { formatearCantidad, formatearMoneda } from '../../shared/formato/formato';
-
-type Vista = 'pos' | 'historial';
-type TipoLinea = 'Producto' | 'Servicio';
-
-interface Cliente {
-  id: string;
-  nombre: string;
-  documento?: string | null;
-}
-
-interface ServicioVenta {
-  id: string;
-  nombre: string;
-  categoria?: string | null;
-  precio: number | string;
-  codigoMoneda: string;
-  duracionMinutos: number | string;
-}
-
-interface ProductoVenta {
-  id: string;
-  codigo?: string | null;
-  nombre: string;
-  unidadBase: string;
-  manejaFraccion: boolean;
-  existenciaActual: number | string;
-  precioVenta?: number | string | null;
-  codigoMoneda: string;
-}
-
-interface Empleado {
-  id: string;
-  nombre: string;
-}
-
-interface Impuesto {
-  id: string;
-  nombre: string;
-  porcentaje: number | string;
-}
-
-interface MetodoPago {
-  id: string;
-  nombre: string;
-  requiereReferencia: boolean;
-  esEfectivo: boolean;
-}
-
-interface ConfiguracionNegocio {
-  permitirVentaSinStock: boolean;
-  permitirSaldosPendientes: boolean;
-  facturacionHabilitada: boolean;
-  exigirEmpleadoVentaServicio: boolean;
-}
-
-interface CatalogoVentas {
-  metodosPago: MetodoPago[];
-  impuestos: Impuesto[];
-  empleados: Empleado[];
-  codigoMoneda: string;
-  permitirVentaSinStock: boolean;
-  permitirSaldosPendientes: boolean;
-  facturacionHabilitada: boolean;
-  exigirEmpleadoVentaServicio: boolean;
-}
-
-interface CajaActual {
-  id: string;
-  estado: string;
-}
-
-interface CatalogoItem {
-  tipo: TipoLinea;
-  id: string;
-  nombre: string;
-  secundario: string;
-  precio: number;
-  codigoMoneda: string;
-  unidad: string;
-  manejaFraccion: boolean;
-  existenciaActual?: number | string;
-}
-
-interface LineaCarrito {
-  uid: number;
-  tipo: TipoLinea;
-  itemId: string;
-  nombre: string;
-  precioUnitario: number;
-  codigoMoneda: string;
-  unidad: string;
-  manejaFraccion: boolean;
-  cantidad: number;
-  tipoDescuento: '' | 'Porcentaje' | 'ImporteFijo';
-  valorDescuento: number | null;
-  impuestoId: string;
-  empleadoId: string;
-}
-
-interface PagoEditable {
-  uid: number;
-  metodoPagoId: string;
-  importe: number | null;
-  referencia: string;
-}
-
-interface LineaVentaDto {
-  id: string;
-  tipo: string;
-  manejaFraccion: boolean;
-  nombre: string;
-  unidad: string;
-  cantidad: number | string;
-  precioUnitario: number | string;
-  totalImporte: number | string;
-}
-
-interface DocumentoVentaDto {
-  tipoDocumento: string;
-  numero: string;
-}
-
-interface PagoVentaDto {
-  id: string;
-  metodoPagoNombre: string;
-  importe: number | string;
-  referencia?: string | null;
-  fechaUtc: string;
-}
-
-interface LineaDevolucionDto {
-  detalleVentaId: string;
-  cantidad: number | string;
-  importe: number | string;
-}
-
-interface PagoDevolucionDto {
-  metodoPagoNombre: string;
-  importe: number | string;
-  referencia?: string | null;
-}
-
-interface DevolucionVentaDto {
-  id: string;
-  fechaUtc: string;
-  motivo: string;
-  importeLineas: number | string;
-  importeReintegrado: number | string;
-  lineas: LineaDevolucionDto[];
-  pagos: PagoDevolucionDto[];
-}
-
-interface Venta {
-  id: string;
-  clienteId?: string | null;
-  clienteNombre?: string | null;
-  clienteDocumento?: string | null;
-  fechaVentaUtc: string;
-  codigoMoneda: string;
-  estado: string;
-  subtotal: number | string;
-  impuestos: number | string;
-  total: number | string;
-  totalPagado: number | string;
-  totalDevuelto: number | string;
-  totalPendiente: number | string;
-  totalReintegrado: number | string;
-  motivoAnulacion?: string | null;
-  fechaAnulacionUtc?: string | null;
-  lineas: LineaVentaDto[];
-  pagos: PagoVentaDto[];
-  devoluciones: DevolucionVentaDto[];
-  documentos: DocumentoVentaDto[];
-}
-
-type Panel =
-  | { tipo: 'detalle'; venta: Venta }
-  | { tipo: 'pago'; venta: Venta }
-  | { tipo: 'devolucion'; venta: Venta }
-  | { tipo: 'anular'; venta: Venta }
-  | null;
-
-const SILENCIO = () => new HttpContext().set(SILENCIAR_ERRORES, true);
-const ESTADOS_VENTA = ['Finalizada', 'ParcialmenteDevuelta', 'Devuelta', 'Anulada'];
+import { ClienteOpcion, SelectorCliente } from '../../shared/componentes/selector-cliente';
+import { Columna, Tabla } from '../../shared/componentes/tabla';
+import { formatearMoneda } from '../../shared/formato/formato';
+import { DetalleVenta } from './detalle-venta';
+import { ESTADOS_VENTA, Venta, documentoDe } from './modelos';
 
 @Component({
   selector: 'app-ventas',
-  imports: [FormsModule, Icono, Tabla, Paginador, PanelLateral, FormularioDinamico],
+  imports: [FormsModule, RouterLink, Icono, Tabla, Paginador, PanelLateral, SelectorCliente, DetalleVenta],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ventas.html',
   styleUrl: './ventas.css',
 })
-export class Ventas implements OnInit {
+export class Ventas {
   private readonly http = inject(HttpClient);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly notificaciones = inject(NotificacionesService);
-  private readonly confirmacion = inject(ConfirmacionService);
-  private readonly sesion = inject(SesionService);
 
-  protected readonly vista = signal<Vista>('pos');
-  protected readonly esAdministrador = this.sesion.tieneRol('Administrador');
-
-  protected readonly clientes = signal<Cliente[]>([]);
-  protected readonly servicios = signal<ServicioVenta[]>([]);
-  protected readonly productos = signal<ProductoVenta[]>([]);
-  protected readonly empleados = signal<Empleado[]>([]);
-  protected readonly impuestos = signal<Impuesto[]>([]);
-  protected readonly metodosPago = signal<MetodoPago[]>([]);
-  protected readonly configuracion = signal<ConfiguracionNegocio | null>(null);
-  protected readonly monedaConfigurada = signal('COP');
-  protected readonly cajaActual = signal<CajaActual | null>(null);
-  protected readonly cargandoCatalogos = signal(true);
-  protected readonly errorCatalogos = signal<string | null>(null);
-
-  protected readonly busquedaCatalogo = signal('');
-  protected readonly clienteId = signal('');
-  protected readonly solicitarFactura = signal(false);
-  protected readonly descuentoGeneralTipo = signal<'' | 'Porcentaje' | 'ImporteFijo'>('');
-  protected readonly descuentoGeneralValor = signal<number | null>(null);
-  protected readonly carrito = signal<LineaCarrito[]>([]);
-  protected readonly pagos = signal<PagoEditable[]>([]);
-  protected readonly enviandoVenta = signal(false);
-  protected readonly errorVenta = signal<string | null>(null);
-
-  protected readonly ventas = signal<Venta[]>([]);
-  protected readonly totalVentas = signal(0);
+  protected readonly filas = signal<Venta[]>([]);
+  protected readonly total = signal(0);
   protected readonly pagina = signal(1);
-  protected readonly cargandoVentas = signal(true);
-  protected readonly errorVentas = signal<string | null>(null);
+  protected readonly cargando = signal(true);
+  protected readonly error = signal<string | null>(null);
+
   protected readonly desde = signal('');
   protected readonly hasta = signal('');
-  protected readonly filtroClienteId = signal('');
   protected readonly estado = signal('');
-
-  protected readonly panel = signal<Panel>(null);
-  protected readonly cargandoDetalle = signal(false);
-  protected readonly enviandoAccion = signal(false);
-  protected readonly errorAccion = signal<string | null>(null);
-
-  private siguienteUid = 1;
-  private readonly busquedasProductos$ = new Subject<string>();
-
-  constructor() {
-    this.busquedasProductos$
-      .pipe(
-        debounceTime(250),
-        distinctUntilChanged(),
-        tap(() => this.cargandoCatalogos.set(true)),
-        switchMap((texto) =>
-          this.cargarProductos(texto).pipe(
-            catchError((error: unknown) => {
-              this.errorCatalogos.set(mensajeDeError(error, 'No se pudieron buscar los productos.'));
-              return of(null);
-            }),
-          ),
-        ),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((productos) => {
-        if (productos) {
-          this.errorCatalogos.set(null);
-          this.productos.set(productos.filter((p) => p.precioVenta !== null && p.precioVenta !== undefined));
-        }
-        this.cargandoCatalogos.set(false);
-      });
-  }
+  protected readonly cliente = signal<ClienteOpcion | null>(null);
+  protected readonly seleccionada = signal<Venta | null>(null);
+  protected readonly estados = Object.entries(ESTADOS_VENTA).map(([valor, e]) => ({ valor, texto: e.texto }));
 
   protected readonly columnas: Columna<Venta>[] = [
     { titulo: 'Fecha', valor: (v) => formatearFechaHora(v.fechaVentaUtc) },
-    { titulo: 'Cliente', valor: (v) => v.clienteNombre ?? 'Consumidor final', secundario: (v) => v.clienteDocumento },
+    { titulo: 'Comprobante', valor: (v) => documentoDe(v, 'Comprobante')?.numeroCompleto ?? '—', secundario: (v) => (documentoDe(v, 'Factura') ? `Factura ${documentoDe(v, 'Factura')!.numeroCompleto}` : null), ocultarEnMovil: true },
+    { titulo: 'Cliente', valor: (v) => v.clienteNombre ?? 'Cliente general' },
+    { titulo: 'Estado', valor: (v) => v.estado, insignia: (v) => ESTADOS_VENTA[v.estado] ?? { texto: v.estado, tono: 'gris' } },
     {
-      titulo: 'Estado',
-      valor: (v) => v.estado,
-      insignia: (v) => ({ texto: v.estado, tono: this.tonoEstado(v.estado) }),
+      titulo: 'Pendiente',
+      valor: (v) => (numero(v.totalPendiente) > 0 ? formatearMoneda(v.totalPendiente, v.codigoMoneda) : '—'),
+      insignia: (v) => (numero(v.totalPendiente) > 0 && v.estado !== 'Anulada' ? { texto: formatearMoneda(v.totalPendiente, v.codigoMoneda), tono: 'aviso' } : null),
+      alinear: 'derecha',
+      ocultarEnMovil: true,
     },
     { titulo: 'Total', valor: (v) => formatearMoneda(v.total, v.codigoMoneda), alinear: 'derecha' },
-    { titulo: 'Pendiente', valor: (v) => formatearMoneda(v.totalPendiente, v.codigoMoneda), alinear: 'derecha', ocultarEnMovil: true },
   ];
 
-  protected readonly catalogo = computed<CatalogoItem[]>(() => [
-    ...this.servicios().map((s) => ({
-      tipo: 'Servicio' as const,
-      id: s.id,
-      nombre: s.nombre,
-      secundario: [s.categoria, `${s.duracionMinutos} min`].filter(Boolean).join(' · '),
-      precio: numero(s.precio),
-      codigoMoneda: s.codigoMoneda,
-      unidad: 'servicio',
-      manejaFraccion: false,
-    })),
-    ...this.productos().map((p) => ({
-      tipo: 'Producto' as const,
-      id: p.id,
-      nombre: p.nombre,
-      secundario: [p.codigo, p.unidadBase, `Disponible: ${formatearCantidad(p.existenciaActual)}`].filter(Boolean).join(' · '),
-      precio: numero(p.precioVenta),
-      codigoMoneda: p.codigoMoneda,
-      unidad: p.unidadBase,
-      manejaFraccion: p.manejaFraccion,
-      existenciaActual: p.existenciaActual,
-    })),
-  ]);
+  protected readonly hayFiltros = computed(() => !!(this.desde() || this.hasta() || this.estado() || this.cliente()));
 
-  protected readonly catalogoFiltrado = computed(() => {
-    const texto = this.busquedaCatalogo().trim().toLowerCase();
-    const items = this.catalogo();
-    if (!texto) return items.slice(0, 18);
-    return items.filter((i) => `${i.nombre} ${i.secundario}`.toLowerCase().includes(texto)).slice(0, 18);
-  });
-
-  protected readonly subtotal = computed(() => this.carrito().reduce((suma, l) => suma + l.precioUnitario * numero(l.cantidad), 0));
-  protected readonly descuentoLineas = computed(() => this.carrito().reduce((suma, l) => suma + this.descuentoLinea(l), 0));
-  protected readonly baseDespuesDescuento = computed(() => Math.max(0, this.subtotal() - this.descuentoLineas() - this.descuentoGeneral()));
-  protected readonly impuestosCalculados = computed(() =>
-    this.carrito().reduce((suma, l) => {
-      const impuesto = this.impuestos().find((i) => i.id === l.impuestoId);
-      const base = Math.max(0, l.precioUnitario * numero(l.cantidad) - this.descuentoLinea(l));
-      return suma + (base * numero(impuesto?.porcentaje)) / 100;
-    }, 0),
-  );
-  protected readonly totalPreview = computed(() => Math.max(0, this.baseDespuesDescuento() + this.impuestosCalculados()));
-  protected readonly totalPagos = computed(() => this.pagos().reduce((suma, p) => suma + numero(p.importe), 0));
-  protected readonly moneda = computed(() => this.carrito()[0]?.codigoMoneda ?? this.monedaConfigurada());
-
-  protected readonly problemaVenta = computed(() => {
-    if (!this.cajaActual()) return 'Abre una caja antes de finalizar ventas.';
-    if (this.carrito().length === 0) return 'Agrega al menos un producto o servicio.';
-    if (this.solicitarFactura() && !this.configuracion()?.facturacionHabilitada) return 'La facturación no está habilitada en configuración.';
-    for (const [i, l] of this.carrito().entries()) {
-      const n = i + 1;
-      if (numero(l.cantidad) <= 0) return `Línea ${n}: la cantidad debe ser mayor que cero.`;
-      if (l.tipo === 'Servicio' && this.configuracion()?.exigirEmpleadoVentaServicio && !l.empleadoId) return `Línea ${n}: selecciona el empleado.`;
-    }
-    for (const [i, p] of this.pagos().entries()) {
-      const n = i + 1;
-      const metodo = this.metodosPago().find((m) => m.id === p.metodoPagoId);
-      if (!p.metodoPagoId) return `Pago ${n}: selecciona un método de pago.`;
-      if (numero(p.importe) <= 0) return `Pago ${n}: el importe debe ser mayor que cero.`;
-      if (metodo?.requiereReferencia && !p.referencia.trim()) return `Pago ${n}: la referencia es obligatoria.`;
-    }
-    if (!this.configuracion()?.permitirSaldosPendientes && Math.round(this.totalPagos() * 100) < Math.round(this.totalPreview() * 100)) {
-      return 'La configuración no permite saldos pendientes: registra el pago completo.';
-    }
-    return null;
-  });
-
-  protected readonly opcionesClientes = computed<OpcionCampo[]>(() => this.clientes().map((c) => ({ valor: c.id, etiqueta: c.nombre })));
-  protected readonly opcionesMetodos = computed<OpcionCampo[]>(() => this.metodosPago().map((m) => ({ valor: m.id, etiqueta: m.nombre })));
-  protected readonly opcionesLineas = computed<OpcionCampo[]>(() => {
-    const venta = this.ventaPanel();
-    if (!venta) return [];
-    return venta.lineas.flatMap((linea) => {
-      const pendiente = this.cantidadPendiente(venta, linea);
-      return pendiente > 0
-        ? [{ valor: linea.id, etiqueta: `${linea.nombre} · disponibles: ${formatearCantidad(pendiente)} ${linea.unidad}` }]
-        : [];
-    });
-  });
-
-  protected readonly tituloPanel = computed(() => {
-    const p = this.panel();
-    if (p?.tipo === 'detalle') return 'Detalle de venta';
-    if (p?.tipo === 'pago') return 'Agregar pago';
-    if (p?.tipo === 'devolucion') return 'Registrar devolución';
-    if (p?.tipo === 'anular') return 'Anular venta';
-    return '';
-  });
-
-  protected readonly ventaPanel = computed(() => this.panel()?.venta ?? null);
-
-  protected readonly camposAccion = computed<CampoForm[]>(() => {
-    const p = this.panel();
-    if (!p || p.tipo === 'detalle') return [];
-    const esDevolucion = p.tipo !== 'pago';
-    const reintegroEsperado = (valor: Record<string, unknown>) => {
-      if (p.tipo === 'anular') return this.calcularReintegro(p.venta, this.importeLineasPendientes(p.venta));
-      if (p.tipo === 'devolucion') return this.previsualizarDevolucion(p.venta, valor).reintegro;
-      return 0;
-    };
-    const mostrarReintegro = (valor: Record<string, unknown>) => reintegroEsperado(valor) > 0;
-    const pago: CampoForm[] = [
-      {
-        nombre: 'metodoPagoId',
-        etiqueta: esDevolucion ? 'Método de reintegro' : 'Método de pago',
-        tipo: 'seleccion',
-        requerido: true,
-        opciones: this.opcionesMetodos(),
-        visibleSi: esDevolucion ? mostrarReintegro : undefined,
-      },
-      {
-        nombre: 'importe',
-        etiqueta: p.tipo === 'pago' ? 'Importe abonado' : 'Importe a reintegrar',
-        tipo: 'decimal',
-        requerido: true,
-        min: 0.01,
-        paso: 0.01,
-        visibleSi: esDevolucion ? mostrarReintegro : undefined,
-        ayudaSegun: esDevolucion
-          ? (valor) => `El reintegro exacto calculado es ${formatearMoneda(reintegroEsperado(valor), p.venta.codigoMoneda)}.`
-          : undefined,
-      },
-      {
-        nombre: 'referencia',
-        etiqueta: 'Referencia',
-        tipo: 'texto',
-        visibleSi: esDevolucion ? mostrarReintegro : undefined,
-        ayudaSegun: esDevolucion
-          ? (valor) => this.metodosPago().find((metodo) => metodo.id === String(valor['metodoPagoId'] ?? ''))?.requiereReferencia
-            ? 'El método seleccionado requiere una referencia.'
-            : null
-          : undefined,
-      },
-    ];
-    if (p.tipo === 'pago') return pago;
-    const motivo: CampoForm = { nombre: 'motivo', etiqueta: 'Motivo', tipo: 'area', requerido: true, maximo: 250 };
-    if (p.tipo === 'anular') return [motivo, ...pago];
-    return [
-      motivo,
-      { nombre: 'detalleVentaId', etiqueta: 'Línea a devolver', tipo: 'seleccion', requerido: true, opciones: this.opcionesLineas() },
-      {
-        nombre: 'cantidad',
-        etiqueta: 'Cantidad a devolver',
-        tipo: 'decimal',
-        requerido: true,
-        min: 0.001,
-        paso: 0.001,
-        ayudaSegun: (valor) => {
-          const estimacion = this.previsualizarDevolucion(p.venta, valor);
-          return estimacion.importeLineas > 0
-            ? `Valor de las unidades: ${formatearMoneda(estimacion.importeLineas, p.venta.codigoMoneda)} · Reintegro: ${formatearMoneda(estimacion.reintegro, p.venta.codigoMoneda)}.`
-            : 'El reintegro se calcula según lo cobrado y el valor de las unidades devueltas.';
-        },
-      },
-      ...pago,
-    ];
-  });
-
-  ngOnInit(): void {
-    this.cargarCatalogos();
-    this.cargarVentas();
+  constructor() {
+    this.cargar();
   }
 
-  protected cargarCatalogos(): void {
-    this.cargandoCatalogos.set(true);
-    this.errorCatalogos.set(null);
-
-    forkJoin({
-      clientes: this.lista<Cliente>('/api/clientes', { activo: true, tamanoPagina: 100 }),
-      servicios: this.lista<ServicioVenta>('/api/servicios', { tamanoPagina: 100 }),
-      productos: this.cargarProductos(this.busquedaCatalogo()),
-      catalogo: this.http.get<CatalogoVentas>('/api/ventas/catalogo', { context: SILENCIO() }),
-      caja: this.http.get<CajaActual | null>('/api/caja/actual', { context: SILENCIO() }).pipe(catchError(() => of(null))),
-    }).subscribe({
+  protected cargar(): void {
+    this.cargando.set(true);
+    this.error.set(null);
+    const params = parametros({
+      desdeUtc: this.desde() ? inicioDiaUtc(this.desde()) : null,
+      hastaUtc: this.hasta() ? inicioDiaUtc(sumarDias(this.hasta(), 1)) : null,
+      clienteId: this.cliente()?.id ?? null,
+      estado: this.estado(),
+      pagina: this.pagina(),
+      tamanoPagina: 20,
+    });
+    this.http.get<unknown>('/api/ventas', { params, context: new HttpContext().set(SILENCIAR_ERRORES, true) }).subscribe({
       next: (r) => {
-        this.clientes.set(r.clientes);
-        this.servicios.set(r.servicios);
-        this.productos.set(r.productos.filter((p) => p.precioVenta !== null && p.precioVenta !== undefined));
-        this.empleados.set(r.catalogo.empleados);
-        this.impuestos.set(r.catalogo.impuestos);
-        this.metodosPago.set(r.catalogo.metodosPago);
-        this.monedaConfigurada.set(r.catalogo.codigoMoneda);
-        this.configuracion.set({
-          permitirVentaSinStock: r.catalogo.permitirVentaSinStock,
-          permitirSaldosPendientes: r.catalogo.permitirSaldosPendientes,
-          facturacionHabilitada: r.catalogo.facturacionHabilitada,
-          exigirEmpleadoVentaServicio: r.catalogo.exigirEmpleadoVentaServicio,
-        });
-        this.cajaActual.set(r.caja);
-        this.cargandoCatalogos.set(false);
+        const p: Pagina<Venta> = normalizarPagina<Venta>(r);
+        this.filas.set(p.elementos);
+        this.total.set(p.total);
+        this.cargando.set(false);
+        // Si hay una venta abierta en el panel, se refresca con los datos nuevos.
+        const abierta = this.seleccionada();
+        if (abierta) this.seleccionada.set(p.elementos.find((v) => v.id === abierta.id) ?? abierta);
       },
       error: (err: unknown) => {
-        this.cargandoCatalogos.set(false);
-        this.errorCatalogos.set(mensajeDeError(err, 'No se pudieron cargar los datos para vender.'));
+        this.cargando.set(false);
+        this.error.set(mensajeDeError(err, 'No se pudieron cargar las ventas.'));
       },
     });
   }
 
-  private lista<T>(url: string, filtros: Record<string, string | number | boolean>) {
-    return this.http.get<unknown>(url, { context: SILENCIO(), params: parametros(filtros) }).pipe(map((r) => normalizarPagina<T>(r, 100).elementos));
-  }
-
-  private cargarProductos(buscar: string) {
-    return this.http
-      .get<unknown>('/api/ventas/catalogo/productos', {
-        context: SILENCIO(),
-        params: parametros({ buscar: buscar.trim() || null, pagina: 1, tamanoPagina: 100 }),
-      })
-      .pipe(map((r) => normalizarPagina<ProductoVenta>(r, 100).elementos));
-  }
-
-  protected cambiarBusquedaCatalogo(texto: string): void {
-    this.busquedaCatalogo.set(texto);
-    this.busquedasProductos$.next(texto);
-  }
-
-  protected agregarItem(item: CatalogoItem): void {
-    this.carrito.update((lineas) => [
-      ...lineas,
-      {
-        uid: this.siguienteUid++,
-        tipo: item.tipo,
-        itemId: item.id,
-        nombre: item.nombre,
-        precioUnitario: item.precio,
-        codigoMoneda: item.codigoMoneda,
-        unidad: item.unidad,
-        manejaFraccion: item.manejaFraccion,
-        cantidad: 1,
-        tipoDescuento: '',
-        valorDescuento: null,
-        impuestoId: '',
-        empleadoId: '',
-      },
-    ]);
-  }
-
-  protected actualizarLinea(uid: number, cambios: Partial<LineaCarrito>): void {
-    this.carrito.update((lineas) => lineas.map((l) => (l.uid === uid ? { ...l, ...cambios } : l)));
-  }
-
-  protected quitarLinea(uid: number): void {
-    this.carrito.update((lineas) => lineas.filter((l) => l.uid !== uid));
-  }
-
-  protected agregarPago(): void {
-    const restante = Math.max(0, this.totalPreview() - this.totalPagos());
-    this.pagos.update((pagos) => [...pagos, { uid: this.siguienteUid++, metodoPagoId: this.metodosPago()[0]?.id ?? '', importe: restante || null, referencia: '' }]);
-  }
-
-  protected actualizarPago(uid: number, cambios: Partial<PagoEditable>): void {
-    this.pagos.update((pagos) => pagos.map((p) => (p.uid === uid ? { ...p, ...cambios } : p)));
-  }
-
-  protected quitarPago(uid: number): void {
-    this.pagos.update((pagos) => pagos.filter((p) => p.uid !== uid));
-  }
-
-  protected async finalizarVenta(): Promise<void> {
-    if (this.problemaVenta() || this.enviandoVenta()) return;
-    const aceptado = await this.confirmacion.confirmar({
-      titulo: '¿Finalizar venta?',
-      mensaje: 'El backend calculará los totales oficiales, descontará inventario cuando corresponda y consumirá la numeración del comprobante.',
-      textoAceptar: 'Finalizar venta',
-    });
-    if (!aceptado) return;
-
-    this.enviandoVenta.set(true);
-    this.errorVenta.set(null);
-    this.http.post<Venta>('/api/ventas', this.cuerpoVenta(), { context: SILENCIO() }).subscribe({
-      next: (venta) => {
-        this.enviandoVenta.set(false);
-        this.notificaciones.exito('Venta finalizada correctamente.');
-        this.carrito.set([]);
-        this.pagos.set([]);
-        this.clienteId.set('');
-        this.solicitarFactura.set(false);
-        this.descuentoGeneralTipo.set('');
-        this.descuentoGeneralValor.set(null);
-        this.cargarCatalogos();
-        this.cargarVentas();
-        this.panel.set({ tipo: 'detalle', venta });
-      },
-      error: (err: unknown) => {
-        this.enviandoVenta.set(false);
-        this.errorVenta.set(mensajeDeError(err, 'No se pudo finalizar la venta.'));
-      },
-    });
-  }
-
-  private cuerpoVenta() {
-    return {
-      clienteId: this.clienteId() || null,
-      solicitarFactura: this.solicitarFactura(),
-      descuentoGeneral: this.descuentoGeneralTipo() ? { tipo: this.descuentoGeneralTipo(), valor: numero(this.descuentoGeneralValor()) } : null,
-      lineas: this.carrito().map((l) => ({
-        tipo: l.tipo,
-        articuloInventarioId: l.tipo === 'Producto' ? l.itemId : null,
-        servicioId: l.tipo === 'Servicio' ? l.itemId : null,
-        empleadoId: l.tipo === 'Servicio' && l.empleadoId ? l.empleadoId : null,
-        cantidad: numero(l.cantidad),
-        descuento: l.tipoDescuento ? { tipo: l.tipoDescuento, valor: numero(l.valorDescuento) } : null,
-        impuestoId: l.impuestoId || null,
-      })),
-      pagos: this.pagos().length
-        ? this.pagos().map((p) => ({ metodoPagoId: p.metodoPagoId, importe: numero(p.importe), referencia: p.referencia.trim() || null }))
-        : null,
-    };
-  }
-
-  protected cargarVentas(): void {
-    this.cargandoVentas.set(true);
-    this.errorVentas.set(null);
-    this.http
-      .get<unknown>('/api/ventas', {
-        context: SILENCIO(),
-        params: parametros({
-          desdeUtc: this.desde() ? inicioDiaUtc(this.desde()) : null,
-          hastaUtc: this.hasta() ? inicioDiaUtc(sumarDias(this.hasta(), 1)) : null,
-          clienteId: this.filtroClienteId(),
-          estado: this.estado(),
-          pagina: this.pagina(),
-          tamanoPagina: 20,
-        }),
-      })
-      .subscribe({
-        next: (r) => {
-          const p: Pagina<Venta> = normalizarPagina<Venta>(r);
-          this.ventas.set(p.elementos);
-          this.totalVentas.set(p.total);
-          this.cargandoVentas.set(false);
-        },
-        error: (err: unknown) => {
-          this.cargandoVentas.set(false);
-          this.errorVentas.set(mensajeDeError(err, 'No se pudo cargar el historial de ventas.'));
-        },
-      });
-  }
-
-  protected cambiarFiltro(campo: 'desde' | 'hasta' | 'cliente' | 'estado', valor: string): void {
+  protected filtrar(campo: 'desde' | 'hasta' | 'estado', valor: string): void {
     if (campo === 'desde') this.desde.set(valor);
     if (campo === 'hasta') this.hasta.set(valor);
-    if (campo === 'cliente') this.filtroClienteId.set(valor);
     if (campo === 'estado') this.estado.set(valor);
     this.pagina.set(1);
-    this.cargarVentas();
+    this.cargar();
   }
 
-  protected irA(pagina: number): void {
-    this.pagina.set(pagina);
-    this.cargarVentas();
+  protected alElegirCliente(c: ClienteOpcion | null): void {
+    this.cliente.set(c);
+    this.pagina.set(1);
+    this.cargar();
   }
 
-  protected abrirDetalle(venta: Venta): void {
-    this.cargandoDetalle.set(true);
-    this.errorAccion.set(null);
-    this.panel.set({ tipo: 'detalle', venta });
-    this.http.get<Venta>(`/api/ventas/${venta.id}`, { context: SILENCIO() }).subscribe({
-      next: (v) => {
-        this.panel.set({ tipo: 'detalle', venta: v });
-        this.cargandoDetalle.set(false);
-      },
-      error: (err: unknown) => {
-        this.cargandoDetalle.set(false);
-        this.errorAccion.set(mensajeDeError(err, 'No se pudo cargar el detalle de la venta.'));
-      },
-    });
+  protected limpiar(): void {
+    this.desde.set('');
+    this.hasta.set('');
+    this.estado.set('');
+    this.cliente.set(null);
+    this.pagina.set(1);
+    this.cargar();
   }
 
-  protected abrirAccion(tipo: 'pago' | 'devolucion' | 'anular', venta: Venta): void {
-    this.errorAccion.set(null);
-    this.panel.set({ tipo, venta });
+  protected irA(p: number): void {
+    this.pagina.set(p);
+    this.cargar();
   }
-
-  protected cerrarPanel(): void {
-    if (this.enviandoAccion()) return;
-    this.panel.set(null);
-  }
-
-  protected cantidadPendiente(venta: Venta, linea: LineaVentaDto): number {
-    const devuelta = venta.devoluciones
-      .flatMap((devolucion) => devolucion.lineas)
-      .filter((detalle) => detalle.detalleVentaId === linea.id)
-      .reduce((suma, detalle) => suma + numero(detalle.cantidad), 0);
-    return Math.max(0, numero(linea.cantidad) - devuelta);
-  }
-
-  private importePendienteLinea(venta: Venta, linea: LineaVentaDto): number {
-    const devuelto = venta.devoluciones
-      .flatMap((devolucion) => devolucion.lineas)
-      .filter((detalle) => detalle.detalleVentaId === linea.id)
-      .reduce((suma, detalle) => suma + numero(detalle.importe), 0);
-    return Math.max(0, numero(linea.totalImporte) - devuelto);
-  }
-
-  private importeLineasPendientes(venta: Venta): number {
-    return venta.lineas.reduce((suma, linea) => suma + this.importePendienteLinea(venta, linea), 0);
-  }
-
-  private calcularReintegro(venta: Venta, importeLineasDevueltas: number): number {
-    const valorConservado = Math.max(0, numero(venta.total) - numero(venta.totalDevuelto) - importeLineasDevueltas);
-    const reintegro = Math.max(0, numero(venta.totalPagado) - numero(venta.totalReintegrado) - valorConservado);
-    return Math.round((reintegro + Number.EPSILON) * 100) / 100;
-  }
-
-  private previsualizarDevolucion(
-    venta: Venta,
-    valor: Record<string, unknown>,
-  ): { importeLineas: number; reintegro: number } {
-    const idLinea = String(valor['detalleVentaId'] ?? '');
-    const cantidad = numero(valor['cantidad'] as number | string | null | undefined);
-    const linea = venta.lineas.find((x) => x.id === idLinea);
-    if (!linea || cantidad <= 0 || cantidad > this.cantidadPendiente(venta, linea)) {
-      return { importeLineas: 0, reintegro: 0 };
-    }
-
-    const cantidadPendiente = this.cantidadPendiente(venta, linea);
-    const importePendiente = this.importePendienteLinea(venta, linea);
-    const importeLineas = cantidad === cantidadPendiente
-      ? importePendiente
-      : Math.min(importePendiente, Math.round((numero(linea.totalImporte) * cantidad / numero(linea.cantidad) + Number.EPSILON) * 100) / 100);
-    return { importeLineas, reintegro: this.calcularReintegro(venta, importeLineas) };
-  }
-
-  protected nombreLinea(venta: Venta, id: string): string {
-    return venta.lineas.find((linea) => linea.id === id)?.nombre ?? 'Línea de venta';
-  }
-
-  protected async guardarAccion(valor: Record<string, unknown>): Promise<void> {
-    const p = this.panel();
-    if (!p || p.tipo === 'detalle' || this.enviandoAccion()) return;
-
-    if (p.tipo !== 'pago') {
-      let importeLineas = this.importeLineasPendientes(p.venta);
-      if (p.tipo === 'devolucion') {
-        const linea = p.venta.lineas.find((x) => x.id === String(valor['detalleVentaId'] ?? ''));
-        const cantidad = numero(valor['cantidad'] as number | string | null | undefined);
-        if (!linea || cantidad <= 0 || cantidad > this.cantidadPendiente(p.venta, linea)) {
-          this.errorAccion.set('Selecciona una línea con unidades pendientes y una cantidad disponible para devolver.');
-          return;
-        }
-        if ((linea.tipo === 'Servicio' || !linea.manejaFraccion) && !Number.isInteger(cantidad)) {
-          this.errorAccion.set('La cantidad de esta línea debe ser un número entero.');
-          return;
-        }
-        importeLineas = this.previsualizarDevolucion(p.venta, valor).importeLineas;
-      }
-
-      const reintegroEsperado = this.calcularReintegro(p.venta, importeLineas);
-      const pagoCapturado = this.pagoDesdeValor(valor);
-      if (Math.round(pagoCapturado.importe * 100) !== Math.round(reintegroEsperado * 100)) {
-        this.errorAccion.set(`El reintegro debe ser exactamente ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)} según lo cobrado y las unidades devueltas.`);
-        return;
-      }
-      if (reintegroEsperado > 0 && !pagoCapturado.metodoPagoId) {
-        this.errorAccion.set('Selecciona el método con el que se pagará el reintegro.');
-        return;
-      }
-      const metodoReintegro = this.metodosPago().find((metodo) => metodo.id === pagoCapturado.metodoPagoId);
-      if (reintegroEsperado > 0 && metodoReintegro?.requiereReferencia && !pagoCapturado.referencia) {
-        this.errorAccion.set('El método seleccionado requiere una referencia para registrar el reintegro.');
-        return;
-      }
-
-      const aceptado = await this.confirmacion.confirmar({
-        titulo: p.tipo === 'anular' ? '¿Anular toda la venta?' : '¿Registrar esta devolución?',
-        mensaje: p.tipo === 'anular'
-          ? `Se devolverán todas las unidades pendientes, se ajustará inventario y comisiones, y se registrará un reintegro de ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)}. Esta operación no borra la venta ni sus pagos.`
-          : `Se registrará la devolución por ${formatearMoneda(importeLineas, p.venta.codigoMoneda)}, se actualizarán inventario y comisiones, y se reintegrarán ${formatearMoneda(reintegroEsperado, p.venta.codigoMoneda)}.`,
-        textoAceptar: p.tipo === 'anular' ? 'Anular venta' : 'Registrar devolución',
-        peligro: true,
-      });
-      if (!aceptado) return;
-    }
-
-    this.enviandoAccion.set(true);
-    this.errorAccion.set(null);
-    const pago = this.pagoDesdeValor(valor);
-    const body =
-      p.tipo === 'pago'
-        ? { pagos: [pago] }
-        : p.tipo === 'anular'
-          ? { motivo: valor['motivo'], pagos: pago.importe > 0 ? [pago] : null }
-          : {
-              motivo: valor['motivo'],
-              lineas: [{ detalleVentaId: valor['detalleVentaId'], cantidad: numero(valor['cantidad'] as number | string | null | undefined) }],
-              pagos: pago.importe > 0 ? [pago] : null,
-            };
-    const url =
-      p.tipo === 'pago'
-        ? `/api/ventas/${p.venta.id}/pagos`
-        : p.tipo === 'anular'
-          ? `/api/ventas/${p.venta.id}/anular`
-          : `/api/ventas/${p.venta.id}/devoluciones`;
-    this.http.post<Venta>(url, body, { context: SILENCIO() }).subscribe({
-      next: (venta) => {
-        this.enviandoAccion.set(false);
-        this.notificaciones.exito(p.tipo === 'pago' ? 'Pago registrado.' : p.tipo === 'anular' ? 'Venta anulada.' : 'Devolución registrada.');
-        this.panel.set({ tipo: 'detalle', venta });
-        this.cargarVentas();
-        this.cargarCatalogos();
-      },
-      error: (err: unknown) => {
-        this.enviandoAccion.set(false);
-        this.errorAccion.set(mensajeDeError(err, 'No se pudo completar la operación.'));
-      },
-    });
-  }
-
-  private pagoDesdeValor(valor: Record<string, unknown>) {
-    return {
-      metodoPagoId: String(valor['metodoPagoId'] ?? ''),
-      importe: numero(valor['importe'] as number | string | null | undefined),
-      referencia: typeof valor['referencia'] === 'string' && valor['referencia'].trim() ? valor['referencia'].trim() : null,
-    };
-  }
-
-  protected descargarDocumento(venta: Venta, tipo: 'comprobante' | 'factura'): void {
-    this.http.get(`/api/ventas/${venta.id}/${tipo}.pdf`, { responseType: 'blob', context: SILENCIO() }).subscribe({
-      next: (blob) => this.descargar(blob, `${tipo}-${venta.id}.pdf`),
-      error: (err: unknown) => this.notificaciones.error(mensajeDeError(err, `No se pudo descargar el ${tipo}.`)),
-    });
-  }
-
-  private descargar(blob: Blob, nombre: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nombre;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  protected descuentoLinea(l: LineaCarrito): number {
-    const bruto = l.precioUnitario * numero(l.cantidad);
-    if (l.tipoDescuento === 'Porcentaje') return Math.min(bruto, (bruto * numero(l.valorDescuento)) / 100);
-    if (l.tipoDescuento === 'ImporteFijo') return Math.min(bruto, numero(l.valorDescuento));
-    return 0;
-  }
-
-  protected descuentoGeneral(): number {
-    const base = Math.max(0, this.subtotal() - this.descuentoLineas());
-    if (this.descuentoGeneralTipo() === 'Porcentaje') return Math.min(base, (base * numero(this.descuentoGeneralValor())) / 100);
-    if (this.descuentoGeneralTipo() === 'ImporteFijo') return Math.min(base, numero(this.descuentoGeneralValor()));
-    return 0;
-  }
-
-  protected totalLinea(l: LineaCarrito): number {
-    return Math.max(0, l.precioUnitario * numero(l.cantidad) - this.descuentoLinea(l));
-  }
-
-  protected nombreMetodo(id: string): string {
-    return this.metodosPago().find((m) => m.id === id)?.nombre ?? 'Método';
-  }
-
-  protected tonoEstado(estado: string): TonoInsignia {
-    if (estado === 'Finalizada') return 'exito';
-    if (estado === 'Anulada' || estado === 'Devuelta') return 'peligro';
-    if (estado === 'ParcialmenteDevuelta') return 'aviso';
-    return 'gris';
-  }
-
-  protected formatoMoneda(valor: number | string | null | undefined, moneda = this.moneda()): string {
-    return formatearMoneda(valor, moneda);
-  }
-
-  protected valorNumerico(valor: number | string | null | undefined): number {
-    return numero(valor);
-  }
-
-  protected readonly formatearFechaHora = formatearFechaHora;
-  protected readonly formatearCantidad = formatearCantidad;
-  protected readonly estadosVenta = ESTADOS_VENTA;
 }

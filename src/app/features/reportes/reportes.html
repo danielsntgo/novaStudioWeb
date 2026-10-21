@@ -2,134 +2,95 @@
   <header class="fp-pagina__cabecera">
     <div>
       <h1 class="fp-pagina__titulo">Reportes</h1>
-      <p class="fp-pagina__subtitulo">Informes operativos con filtros y exportación.</p>
-    </div>
-    <div class="acciones">
-      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('pdf')">PDF</button>
-      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('xlsx')">Excel</button>
-      <button type="button" class="fp-boton fp-boton--secundario" [disabled]="exportando() !== null" (click)="exportar('csv')">CSV</button>
+      <p class="fp-pagina__subtitulo">Consulta la información de tu negocio y expórtala a PDF, Excel o CSV.</p>
     </div>
   </header>
 
-  <div class="tipos" role="tablist" aria-label="Tipo de reporte">
-    @for (t of tipos; track t.id) {
-      <button type="button" [class.activo]="tipo() === t.id" (click)="cambiarTipo(t.id)">{{ t.titulo }}</button>
+  <nav class="tipos" aria-label="Tipo de informe">
+    @for (d of definiciones; track d.tipo) {
+      <button type="button" class="tipo" [class.activo]="tipo() === d.tipo" [attr.aria-pressed]="tipo() === d.tipo" (click)="seleccionar(d.tipo)">
+        <svg [app-icono]="d.icono" [tamano]="18"></svg><span>{{ d.titulo }}</span>
+      </button>
     }
-  </div>
+  </nav>
 
-  <section class="filtros fp-tarjeta">
-    @if (tipo() !== 'inventario') {
-      <label>Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="desde.set($event); cargarReporte()" /></label>
-      <label>Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="hasta.set($event); cargarReporte()" /></label>
-    }
-    @if (admiteCliente()) {
-      <label>Cliente
-        <select class="fp-input fp-select" [ngModel]="clienteId()" (ngModelChange)="clienteId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (c of clientes(); track c.id) { <option [value]="c.id">{{ c.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (admiteEmpleado()) {
-      <label>Empleado
-        <select class="fp-input fp-select" [ngModel]="empleadoId()" (ngModelChange)="empleadoId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (e of empleados(); track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (admiteArticulo()) {
-      <label>Artículo
-        <select class="fp-input fp-select" [ngModel]="articuloId()" (ngModelChange)="articuloId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (a of articulos(); track a.id) { <option [value]="a.id">{{ a.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (admiteServicio()) {
-      <label>Servicio
-        <select class="fp-input fp-select" [ngModel]="servicioId()" (ngModelChange)="servicioId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (s of servicios(); track s.id) { <option [value]="s.id">{{ s.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (tipo() === 'compras') {
-      <label>Proveedor
-        <select class="fp-input fp-select" [ngModel]="proveedorId()" (ngModelChange)="proveedorId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (p of proveedores(); track p.id) { <option [value]="p.id">{{ p.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (tipo() === 'ingresos') {
-      <label>Método
-        <select class="fp-input fp-select" [ngModel]="metodoPagoId()" (ngModelChange)="metodoPagoId.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (m of metodos(); track m.id) { <option [value]="m.id">{{ m.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (tipo() === 'cuentas') {
-      <label>Cuenta financiera
-        <select class="fp-input fp-select" [ngModel]="cuentaFinancieraId()" (ngModelChange)="cuentaFinancieraId.set($event); cargarReporte()">
-          <option value="">Todas</option>
-          @for (c of cuentasFinancieras(); track c.id) { <option [value]="c.id">{{ c.nombre }}</option> }
-        </select>
-      </label>
-    }
-    @if (estadosDisponibles().length) {
-      <label>Estado
-        <select class="fp-input fp-select" [ngModel]="estado()" (ngModelChange)="estado.set($event); cargarReporte()">
-          <option value="">Todos</option>
-          @for (e of estadosDisponibles(); track e) { <option [value]="e">{{ e }}</option> }
-        </select>
-      </label>
-    }
-    <label>Límite <input type="number" class="fp-input" min="1" max="10000" [ngModel]="limite()" (ngModelChange)="limite.set($event); cargarReporte()" /></label>
+  <section class="fp-tarjeta panel">
+    <div class="panel__titulo">
+      <div><h2>{{ definicion().titulo }}</h2><p>{{ definicion().descripcion }}</p></div>
+      <div class="exportar" role="group" aria-label="Exportar informe">
+        <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="exportando() !== null || cargando() || rangoInvalido()" (click)="exportar('pdf')">{{ exportando() === 'pdf' ? 'Exportando…' : 'PDF' }}</button>
+        <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="exportando() !== null || cargando() || rangoInvalido()" (click)="exportar('xlsx')">{{ exportando() === 'xlsx' ? 'Exportando…' : 'Excel' }}</button>
+        <button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" [disabled]="exportando() !== null || cargando() || rangoInvalido()" (click)="exportar('csv')">{{ exportando() === 'csv' ? 'Exportando…' : 'CSV' }}</button>
+      </div>
+    </div>
+
+    <div class="filtros">
+      @if (definicion().fechas) {
+        <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiarFecha('desde', $event)" /></label>
+        <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiarFecha('hasta', $event)" /></label>
+      } @else {
+        <span class="sin-fechas"><svg app-icono="info" [tamano]="16"></svg> Muestra el estado actual, sin rango de fechas.</span>
+      }
+      @for (f of definicion().filtros; track f.param) {
+        @if (f.param === 'clienteId') {
+          <div class="filtro-cliente"><app-selector-cliente inputId="reporte-cliente" marcador="Filtrar por cliente" [valor]="cliente()" (valorChange)="alElegirCliente($event)" /></div>
+        } @else {
+          <select class="fp-input fp-select filtro" [attr.aria-label]="f.etiqueta" [ngModel]="valores()[f.param] ?? ''" (ngModelChange)="cambiarValor(f.param, $event)">
+            <option value="">{{ f.etiqueta }}</option>
+            @for (o of opcionesDe(f); track o.valor) { <option [value]="o.valor">{{ o.etiqueta }}</option> }
+          </select>
+        }
+      }
+    </div>
   </section>
 
   @if (error(); as mensaje) {
-    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarReporte()">Reintentar</button></div>
+    <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="generar()">Reintentar</button></div>
   }
 
-  @if (reporte(); as r) {
-    <section class="resumen">
-      <article class="fp-tarjeta"><span>Generado</span><strong>{{ valorTexto(r.generadoUtc) }}</strong></article>
-      <article class="fp-tarjeta"><span>Registros</span><strong>{{ cantidad(r.totalRegistros) }}</strong></article>
-      <article class="fp-tarjeta"><span>Límite</span><strong>{{ cantidad(r.limite) }}</strong></article>
-      <article class="fp-tarjeta"><span>Estado</span><strong>{{ r.truncado ? 'Truncado' : 'Completo' }}</strong></article>
-    </section>
-
-    @if (r.totales.length) {
-      <section class="totales">
+  @if (resultado(); as r) {
+    @if (r.totales.length > 0) {
+      <div class="totales">
         @for (t of r.totales; track t.nombre) {
-          <article class="fp-tarjeta"><span>{{ t.nombre }}</span><strong>{{ valorTotal(t) }}</strong></article>
+          <div class="total"><span>{{ t.nombre }}</span><strong>{{ totalFormateado(t) }}</strong></div>
         }
-      </section>
+      </div>
     }
 
-    <section class="fp-tarjeta tabla" [attr.aria-busy]="cargando()">
-      <div class="tabla__scroll">
-        <table>
-          <thead>
-            <tr>
-              @for (c of r.columnas; track c) { <th>{{ c }}</th> }
-            </tr>
-          </thead>
-          <tbody>
-            @for (fila of r.filas; track $index) {
-              <tr>
-                @for (c of r.columnas; track c) { <td>{{ valorFila(fila, c) }}</td> }
-              </tr>
-            } @empty {
-              <tr><td [attr.colspan]="r.columnas.length || 1" class="vacio">Sin filas para los filtros actuales.</td></tr>
-            }
-          </tbody>
-        </table>
+    @if (r.truncado) {
+      <div class="fp-alerta aviso" role="status"><svg app-icono="info" [tamano]="18"></svg><span>Hay {{ num(r.totalRegistros) }} registros y el informe incluye solo los primeros {{ num(r.limite) }}. Los totales se calculan sobre esas filas. Acota el rango de fechas para verlos todos.</span></div>
+    }
+
+    <section class="fp-tarjeta resultado" [attr.aria-busy]="cargando()" [class.cargando]="cargando()">
+      <div class="resultado__cabecera">
+        <span>{{ num(r.totalRegistros) }} {{ num(r.totalRegistros) === 1 ? 'registro' : 'registros' }}</span>
+        <span class="generado">Generado {{ generadoEn() }}</span>
       </div>
+      @if (r.filas.length === 0) {
+        <div class="vacio"><p class="vacio__titulo">Sin datos para este informe</p><p class="vacio__detalle">Prueba con otro rango de fechas o con otros filtros.</p></div>
+      } @else {
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr>@for (c of columnas(); track c) { <th [class.der]="alineada(c, r.filas[0])">{{ etiqueta(c) }}</th> }</tr></thead>
+            <tbody>
+              @for (f of filasVisibles(); track $index) {
+                <tr>
+                  @for (c of columnas(); track c) {
+                    <td [class.der]="alineada(c, f)">
+                      @if (tono(f, c); as t) { <span class="fp-insignia" [class]="'fp-insignia fp-insignia--' + t">{{ celda(f, c) }}</span> } @else { {{ celda(f, c) }} }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (hayMasFilas()) {
+          <div class="mas"><button type="button" class="fp-boton fp-boton--secundario fp-boton--pequeno" (click)="masFilas()">Mostrar más filas</button><span>Mostrando {{ filasVisibles().length }} de {{ r.filas.length }}. Exporta el informe para ver todo.</span></div>
+        }
+      }
     </section>
   } @else if (cargando()) {
-    <section class="fp-tarjeta cargando">Generando reporte...</section>
+    <section class="fp-tarjeta resultado"><div class="vacio"><p class="vacio__detalle">Generando informe…</p></div></section>
   }
 </div>

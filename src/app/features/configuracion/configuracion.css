@@ -1,5 +1,2 @@
 .pestanas { margin-bottom: 24px; max-width: 100%; overflow-x: auto; }
 .pestanas button { white-space: nowrap; }
-.aviso-cuentas { padding: 18px; color: var(--fp-texto-suave); }
-.aviso-cuentas a { display: inline-block; margin-top: 10px; color: var(--fp-azul-700); font-weight: 600; text-decoration: none; }
-.aviso-cuentas a:hover { text-decoration: underline; }

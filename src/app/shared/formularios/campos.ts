@@ -1,4 +1,4 @@
-export type TipoCampo = 'texto' | 'email' | 'telefono' | 'numero' | 'decimal' | 'area' | 'seleccion' | 'seleccion-multiple' | 'casilla' | 'fecha' | 'hora';
+export type TipoCampo = 'texto' | 'email' | 'telefono' | 'numero' | 'decimal' | 'area' | 'seleccion' | 'casilla' | 'fecha' | 'hora';
 
 export interface OpcionCampo {
   valor: string;
@@ -15,10 +15,8 @@ export interface CampoForm {
   min?: number;
   paso?: number;
   opciones?: OpcionCampo[];
-  /** Opciones de selección que dependen de otros valores del mismo formulario. */
+  /** Recalcula las opciones a partir del valor actual del formulario. */
   opcionesSegun?: (valor: Record<string, unknown>) => OpcionCampo[];
-  /** Texto de ayuda que puede cambiar según los demás valores del formulario. */
-  ayudaSegun?: (valor: Record<string, unknown>) => string | null;
   marcador?: string;
   ayuda?: string;
   ancho?: 'completo' | 'medio';

@@ -1,0 +1,48 @@
+:host { display: block; }
+.cabecera { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.fecha { font-size: 13.5px; color: var(--fp-texto-suave); }
+.cliente { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; margin-bottom: 14px; }
+.doc { color: var(--fp-gris-500); font-weight: 400; }
+.aviso-motivo { padding: 10px 12px; border-radius: 12px; background: var(--fp-peligro-fondo); color: #8f0012; font-size: 14px; margin-bottom: 14px; }
+.totales { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 16px; background: #fff; border: 1px solid var(--fp-borde-suave); }
+.totales div { display: flex; justify-content: space-between; font-size: 14.5px; color: var(--fp-gris-700); }
+.totales strong { color: var(--fp-texto); font-variant-numeric: tabular-nums; }
+.totales .total { padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--fp-borde-suave); font-size: 17px; font-weight: 600; color: var(--fp-texto); }
+.totales .pendiente strong { color: #8a5300; }
+h3 { font-size: 15px; font-weight: 650; margin: 22px 0 10px; }
+h3.sin-margen { margin-top: 6px; }
+h4 { font-size: 14px; font-weight: 650; margin-bottom: 4px; }
+.caja-tabla { overflow-x: auto; background: #fff; border: 1px solid var(--fp-borde-suave); border-radius: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; padding: 9px 12px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-gris-500); background: var(--fp-gris-50); }
+td { padding: 10px 12px; border-top: 1px solid var(--fp-borde-suave); }
+.der { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.concepto { display: block; font-weight: 500; }
+.sec { display: block; font-size: 12.5px; color: var(--fp-gris-500); }
+.lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lista li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #fff; border: 1px solid var(--fp-borde-suave); font-size: 14.5px; }
+.lista small { color: var(--fp-gris-500); margin-left: 6px; }
+.lista .fh { display: block; margin: 0; font-size: 12.5px; }
+.vacio { font-size: 14px; color: var(--fp-texto-suave); }
+.documentos { display: flex; flex-direction: column; gap: 8px; }
+.doc-boton { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 1px solid var(--fp-borde-suave); border-radius: 14px; background: #fff; text-align: left; font: inherit; cursor: pointer; color: var(--fp-azul-700); transition: background var(--fp-transicion); }
+.doc-boton:hover:not(:disabled) { background: var(--fp-azul-50); }
+.doc-boton:disabled { opacity: 0.6; cursor: default; }
+.doc-boton span:nth-child(2) { flex: 1; display: flex; flex-direction: column; color: var(--fp-texto); }
+.doc-boton small { color: var(--fp-gris-500); font-size: 13px; }
+.pdf { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 8px; background: var(--fp-azul-50); color: var(--fp-azul-700); }
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.acciones.fin { justify-content: flex-end; margin-top: 18px; }
+.atras { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; margin-bottom: 8px; border: 0; background: none; font: inherit; font-size: 14px; color: var(--fp-primario); cursor: pointer; }
+.ayuda { font-size: 14px; color: var(--fp-texto-suave); margin-bottom: 14px; }
+.obligatorio { color: var(--fp-peligro); }
+textarea.fp-input { resize: vertical; }
+.reintegro { margin: 16px 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--fp-gris-50); }
+.reintegro .ayuda { margin-bottom: 6px; }
+.devolucion { margin-bottom: 16px; }
+.devolucion__encabezado { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fp-gris-500); }
+.linea-dev { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; align-items: center; padding: 10px 12px; margin-bottom: 8px; background: #fff; border: 1px solid var(--fp-borde-suave); border-radius: 14px; }
+.linea-dev__nombre { display: flex; flex-direction: column; }
+.linea-dev__nombre small { font-size: 12.5px; color: var(--fp-gris-500); }
+.resumen-dev { text-align: right; font-size: 14.5px; }
+.problema { margin-top: 10px; }

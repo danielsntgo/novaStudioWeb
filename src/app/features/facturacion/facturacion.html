@@ -2,32 +2,33 @@
   <header class="fp-pagina__cabecera">
     <div>
       <h1 class="fp-pagina__titulo">Facturación</h1>
-      <p class="fp-pagina__subtitulo">Consulta comprobantes y facturas generadas desde ventas.</p>
+      <p class="fp-pagina__subtitulo">Comprobantes y facturas emitidos. Descárgalos en PDF cuando los necesites.</p>
     </div>
-    <button type="button" class="fp-boton fp-boton--secundario" (click)="cargar()"><svg app-icono="refrescar" [tamano]="17"></svg> Actualizar</button>
   </header>
 
+  <div class="aviso-legal" role="note"><svg app-icono="info" [tamano]="18"></svg><span>Los documentos son comprobantes internos del sistema. <strong>No son facturas electrónicas validadas por la DIAN</strong>.</span></div>
+
   <div class="fp-herramientas">
-    <select class="fp-input fp-select filtro" aria-label="Estado" [ngModel]="estado()" (ngModelChange)="cambiar('estado', $event)">
-      <option value="">Todos los estados</option>
-      <option value="Finalizada">Finalizada</option>
-      <option value="ParcialmenteDevuelta">Parcialmente devuelta</option>
-      <option value="Devuelta">Devuelta</option>
-      <option value="Anulada">Anulada</option>
-    </select>
-    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiar('desde', $event)" /></label>
-    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiar('hasta', $event)" /></label>
+    <div class="cliente"><app-selector-cliente inputId="filtro-cliente-facturas" marcador="Filtrar por cliente" [valor]="cliente()" (valorChange)="alElegirCliente($event)" /></div>
+    <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="filtrar('desde', $event)" /></label>
+    <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="filtrar('hasta', $event)" /></label>
+    <label class="casilla"><input type="checkbox" [ngModel]="soloFactura()" (ngModelChange)="soloFactura.set($event)" /> Solo con factura</label>
+    @if (hayFiltros()) { <button type="button" class="fp-enlace" (click)="limpiar()">Limpiar filtros</button> }
   </div>
 
   @if (error(); as mensaje) {
     <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargar()">Reintentar</button></div>
   }
 
-  <section class="fp-tarjeta fp-tarjeta--plana">
-    <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargando()" vacioTitulo="Sin documentos" vacioDetalle="Los documentos aparecen después de registrar ventas.">
+  <section class="fp-tarjeta fp-tarjeta--plana" [attr.aria-busy]="cargando()">
+    <app-tabla [columnas]="columnas" [filas]="visibles()" [cargando]="cargando()" vacioTitulo="No hay documentos" [vacioDetalle]="hayFiltros() ? 'Prueba con otros filtros.' : 'Cada venta registrada genera un comprobante.'">
       <ng-template #acciones let-fila>
-        <button type="button" class="fp-enlace" [disabled]="!tieneDocumento(fila, 'Comprobante')" (click)="descargar(fila, 'comprobante')">Comprobante</button>
-        <button type="button" class="fp-enlace" [disabled]="!tieneDocumento(fila, 'Factura')" (click)="descargar(fila, 'factura')">Factura</button>
+        <div class="acciones-fila">
+          <button type="button" class="fp-enlace" [disabled]="enCurso(fila, 'comprobante')" (click)="descargar(fila, 'comprobante')">{{ enCurso(fila, 'comprobante') ? 'Descargando…' : 'Comprobante PDF' }}</button>
+          @if (tieneFactura(fila)) {
+            <button type="button" class="fp-enlace" [disabled]="enCurso(fila, 'factura')" (click)="descargar(fila, 'factura')">{{ enCurso(fila, 'factura') ? 'Descargando…' : 'Factura PDF' }}</button>
+          }
+        </div>
       </ng-template>
     </app-tabla>
     <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />

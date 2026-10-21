@@ -17,7 +17,6 @@ function validadoresDe(campo: CampoForm): ValidatorFn[] {
 function valorInicialDe(campo: CampoForm, inicial: Record<string, unknown>): unknown {
   const bruto = campo.nombre in inicial ? inicial[campo.nombre] : campo.valorPorDefecto;
   if (campo.tipo === 'casilla') return bruto === true;
-  if (campo.tipo === 'seleccion-multiple') return Array.isArray(bruto) ? bruto.map(String) : [];
   if (bruto === null || bruto === undefined) return campo.tipo === 'seleccion' ? '' : campo.tipo === 'numero' || campo.tipo === 'decimal' ? null : '';
   if (campo.tipo === 'seleccion') return String(bruto);
   return bruto;
@@ -70,15 +69,21 @@ export class FormularioDinamico {
     effect((alLimpiar) => {
       const form = this.formulario();
       const aplicarVisibilidad = () => {
-        const valor = form.getRawValue();
         for (const campo of this.campos()) {
-          if (!campo.visibleSi) continue;
           const control = form.controls[campo.nombre];
-          const visible = campo.visibleSi(valor);
-          if (visible && control.disabled && !campo.deshabilitado) control.enable({ emitEvent: false });
-          if (!visible && control.enabled) control.disable({ emitEvent: false });
+          if (campo.visibleSi) {
+            const visible = campo.visibleSi(form.getRawValue());
+            if (visible && control.disabled && !campo.deshabilitado) control.enable({ emitEvent: false });
+            if (!visible && control.enabled) control.disable({ emitEvent: false });
+          }
+          if (campo.opcionesSegun && control.enabled) {
+            const opciones = campo.opcionesSegun(form.getRawValue());
+            const seleccionado = String(control.value ?? '');
+            if (seleccionado && !opciones.some((opcion) => opcion.valor === seleccionado)) {
+              control.setValue(opciones[0]?.valor ?? '', { emitEvent: false });
+            }
+          }
         }
-        this.validarOpcionesDinamicas(form);
       };
       aplicarVisibilidad();
       this.cambios.update((n) => n + 1);
@@ -95,30 +100,9 @@ export class FormularioDinamico {
     return !campo.visibleSi || campo.visibleSi(this.formulario().getRawValue());
   }
 
-  protected opciones(campo: CampoForm) {
+  protected opcionesCampo(campo: CampoForm) {
     this.cambios();
     return campo.opcionesSegun?.(this.formulario().getRawValue()) ?? campo.opciones ?? [];
-  }
-
-  protected ayuda(campo: CampoForm): string | null {
-    this.cambios();
-    return campo.ayudaSegun?.(this.formulario().getRawValue()) ?? campo.ayuda ?? null;
-  }
-
-  protected opcionSeleccionada(campo: CampoForm, valor: string): boolean {
-    const seleccion = this.formulario().controls[campo.nombre].value;
-    return Array.isArray(seleccion) && seleccion.includes(valor);
-  }
-
-  protected alternarSeleccionMultiple(campo: CampoForm, valor: string, evento: Event): void {
-    const control = this.formulario().controls[campo.nombre];
-    const actuales: string[] = Array.isArray(control.value)
-      ? control.value.filter((opcion): opcion is string => typeof opcion === 'string')
-      : [];
-    const marcado = (evento.target as HTMLInputElement).checked;
-    const siguientes = marcado ? [...actuales, valor] : actuales.filter((opcion) => opcion !== valor);
-    control.setValue([...new Set(siguientes)]);
-    control.markAsTouched();
   }
 
   protected tipoHtml(campo: CampoForm): string {
@@ -151,17 +135,15 @@ export class FormularioDinamico {
     if (!control.touched || !control.errors) return null;
     const e = control.errors;
     if (e['required']) return 'Este campo es obligatorio.';
-    if (e['opcionNoValida']) return 'Selecciona una opción válida para los valores actuales.';
     if (e['email']) return 'Escribe un correo válido.';
     if (e['min']) return `Debe ser mayor o igual a ${campo.min}.`;
-    if (e['maxlength']) return campo.tipo === 'seleccion-multiple' ? `Máximo ${campo.maximo} opciones.` : `Máximo ${campo.maximo} caracteres.`;
+    if (e['maxlength']) return `Máximo ${campo.maximo} caracteres.`;
     return 'Valor no válido.';
   }
 
   protected enviar(): void {
     const form = this.formulario();
     form.markAllAsTouched();
-    this.validarOpcionesDinamicas(form);
     this.cambios.update((n) => n + 1);
     if (form.invalid || this.enviando()) return;
 
@@ -174,24 +156,6 @@ export class FormularioDinamico {
     this.guardar.emit(resultado);
   }
 
-  private validarOpcionesDinamicas(form: FormGroup<Controles>): void {
-    const valor = form.getRawValue();
-    for (const campo of this.campos()) {
-      if (campo.tipo !== 'seleccion' || !campo.opcionesSegun || (campo.visibleSi && !campo.visibleSi(valor))) continue;
-      const control = form.controls[campo.nombre];
-      const seleccion = control.value;
-      const valida = typeof seleccion === 'string' && campo.opcionesSegun(valor).some((opcion) => opcion.valor === seleccion);
-      const errores = control.errors ?? {};
-      if (seleccion !== '' && !valida) {
-        control.setErrors({ ...errores, opcionNoValida: true });
-      } else if (errores['opcionNoValida']) {
-        const resto = { ...errores };
-        delete resto['opcionNoValida'];
-        control.setErrors(Object.keys(resto).length ? resto : null);
-      }
-    }
-  }
-
   private convertir(campo: CampoForm, valor: unknown): unknown {
     switch (campo.tipo) {
       case 'casilla':
@@ -202,8 +166,6 @@ export class FormularioDinamico {
         const n = Number(valor);
         return Number.isFinite(n) ? n : null;
       }
-      case 'seleccion-multiple':
-        return Array.isArray(valor) ? valor : [];
       case 'seleccion':
         return valor === '' || valor === undefined ? null : valor;
       default: {
