@@ -70,14 +70,22 @@
     }
     @case ('reglas') {
       @if (errorReglas(); as mensaje) { <div class="fp-alerta error" role="alert">{{ mensaje }}</div> }
+      @if (reglasRecientes(); as recientes) {
+        <div class="seleccion fp-tarjeta" role="status">
+          <span>Se muestran las {{ recientes.length }} reglas que acabas de crear para {{ nombreEmpleado(recientes[0].empleadoId) }}.</span>
+          <button type="button" class="fp-enlace" (click)="verTodasLasReglas()">Ver todas las reglas</button>
+        </div>
+      }
       <section class="fp-tarjeta fp-tarjeta--plana">
-        <app-tabla [columnas]="columnasReglas" [filas]="reglas()" [cargando]="cargandoReglas()" vacioTitulo="Sin reglas" vacioDetalle="Crea reglas para devengar comisiones al vender servicios.">
+        <app-tabla [columnas]="columnasReglas" [filas]="reglasRecientes() ?? reglas()" [cargando]="cargandoReglas()" vacioTitulo="Sin reglas" vacioDetalle="Crea reglas para devengar comisiones al vender servicios.">
           <ng-template #acciones let-fila>
             <button type="button" class="fp-enlace" (click)="abrirRegla(fila)">Editar</button>
             <button type="button" class="fp-enlace" [class.fp-enlace--peligro]="fila.activa" (click)="cambiarEstadoRegla(fila)">{{ fila.activa ? 'Desactivar' : 'Activar' }}</button>
           </ng-template>
         </app-tabla>
-        <app-paginador [pagina]="paginaReglas()" [tamano]="20" [total]="totalReglas()" (cambio)="irA('reglas', $event)" />
+        @if (!reglasRecientes()) {
+          <app-paginador [pagina]="paginaReglas()" [tamano]="20" [total]="totalReglas()" (cambio)="irA('reglas', $event)" />
+        }
       </section>
     }
     @case ('liquidaciones') {

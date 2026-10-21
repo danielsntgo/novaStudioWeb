@@ -103,6 +103,7 @@ export class Comisiones implements OnInit {
   protected readonly errorMovimientos = signal<string | null>(null);
 
   protected readonly reglas = signal<ReglaComision[]>([]);
+  protected readonly reglasRecientes = signal<ReglaComision[] | null>(null);
   protected readonly totalReglas = signal(0);
   protected readonly paginaReglas = signal(1);
   protected readonly cargandoReglas = signal(true);
@@ -278,6 +279,7 @@ export class Comisiones implements OnInit {
   }
 
   protected cargarReglas(): void {
+    this.reglasRecientes.set(null);
     this.cargandoReglas.set(true);
     this.errorReglas.set(null);
     this.http
@@ -328,6 +330,7 @@ export class Comisiones implements OnInit {
   }
 
   protected cambiarFiltro(campo: 'empleado' | 'servicio' | 'estado' | 'tipo' | 'desde' | 'hasta', valor: string): void {
+    this.reglasRecientes.set(null);
     if (campo === 'empleado') this.filtroEmpleadoId.set(valor);
     if (campo === 'servicio') this.filtroServicioId.set(valor);
     if (campo === 'estado') this.estado.set(valor);
@@ -345,6 +348,7 @@ export class Comisiones implements OnInit {
       this.paginaMovimientos.set(pagina);
       this.cargarMovimientos();
     } else if (tabla === 'reglas') {
+      this.reglasRecientes.set(null);
       this.paginaReglas.set(pagina);
       this.cargarReglas();
     } else {
@@ -368,6 +372,12 @@ export class Comisiones implements OnInit {
     this.panel.set(null);
   }
 
+  protected verTodasLasReglas(): void {
+    this.reglasRecientes.set(null);
+    this.paginaReglas.set(1);
+    this.cargarReglas();
+  }
+
   protected guardarPanel(valor: Record<string, unknown>): void {
     const p = this.panel();
     if (!p || this.enviando()) return;
@@ -385,11 +395,27 @@ export class Comisiones implements OnInit {
       timeout({ first: 90_000 }),
       finalize(() => this.enviando.set(false)),
     ).subscribe({
-      next: () => {
+      next: (respuesta: unknown) => {
         this.panel.set(null);
-        if (p.tipo === 'liquidacion') this.seleccionados.set(new Set());
+        if (p.tipo === 'liquidacion') {
+          this.seleccionados.set(new Set());
+          this.cargarTodo();
+        } else if (p.regla) {
+          this.pestana.set('reglas');
+          this.filtroEmpleadoId.set(p.regla.empleadoId);
+          this.filtroServicioId.set(p.regla.servicioId);
+          this.paginaReglas.set(1);
+          this.cargarReglas();
+        } else {
+          const creadas = Array.isArray(respuesta) ? respuesta as ReglaComision[] : [];
+          this.pestana.set('reglas');
+          this.filtroEmpleadoId.set(String(valor['empleadoId'] ?? ''));
+          this.filtroServicioId.set('');
+          this.paginaReglas.set(1);
+          if (creadas.length > 0) this.reglasRecientes.set(creadas);
+          else this.cargarReglas();
+        }
         this.notificaciones.exito(p.tipo === 'liquidacion' ? 'Liquidación creada correctamente.' : p.regla ? 'Regla guardada correctamente.' : 'Reglas creadas correctamente.');
-        this.cargarTodo();
       },
       error: (err: unknown) => {
         const mensaje = err instanceof TimeoutError
