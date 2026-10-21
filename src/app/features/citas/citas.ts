@@ -47,6 +47,7 @@ export class Citas {
   protected readonly fecha = signal(hoyLocal());
   protected readonly verCanceladas = signal(false);
   protected readonly citas = signal<Cita[]>([]);
+  private readonly citaReciente = signal<Cita | null>(null);
   protected readonly totalApi = signal(0);
   protected readonly cargando = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -137,8 +138,14 @@ export class Citas {
           return this.http.get<unknown>('/api/citas', { params, context: new HttpContext().set(SILENCIAR_ERRORES, true) }).pipe(
             map((r) => normalizarPagina<Cita>(r, MAX_CITAS)),
             tap((p) => {
-              this.citas.set(p.elementos);
-              this.totalApi.set(p.total);
+              const reciente = this.citaReciente();
+              const fechaReciente = reciente ? fechaLocalDe(reciente.inicioUtc) : '';
+              const agregarReciente = reciente !== null && fechaReciente >= this.inicioRango() && fechaReciente < this.finRango();
+              const elementos = agregarReciente
+                ? [...p.elementos.filter((cita) => cita.id !== reciente.id), reciente]
+                : p.elementos;
+              this.citas.set(elementos);
+              this.totalApi.set(Math.max(p.total, elementos.length));
               this.cargando.set(false);
             }),
             catchError((err: unknown) => {
@@ -214,8 +221,15 @@ export class Citas {
     this.panel.set(null);
   }
 
-  protected alCambiar(): void {
+  protected alCambiar(citaCreada?: Cita): void {
     this.panel.set(null);
+    if (citaCreada) {
+      this.citaReciente.set(citaCreada);
+      this.fecha.set(fechaLocalDe(citaCreada.inicioUtc));
+      this.vista.set('dia');
+    } else {
+      this.citaReciente.set(null);
+    }
     this.recargar();
   }
 

@@ -9,6 +9,7 @@ import { mensajeDeError } from '../../core/api/problema';
 import { NotificacionesService } from '../../core/notificaciones/notificaciones.service';
 import { aIsoConDesfase, hoyLocal } from '../../core/tiempo/zona';
 import { Icono } from '../../shared/componentes/icono';
+import type { Cita } from './modelos';
 import { SelectorHorario, SeleccionHorario } from './selector-horario';
 
 interface ClienteOpcion {
@@ -37,7 +38,7 @@ export class NuevaCita implements OnInit {
   private readonly silencio = { context: new HttpContext().set(SILENCIAR_ERRORES, true) };
 
   readonly fechaInicial = input(hoyLocal());
-  readonly creada = output<void>();
+  readonly creada = output<Cita>();
   readonly cerrar = output<void>();
 
   protected readonly hoy = hoyLocal();
@@ -115,12 +116,12 @@ export class NuevaCita implements OnInit {
     this.enviando.set(true);
     this.error.set(null);
     this.http
-      .post('/api/citas', { clienteId: c.id, servicioId: this.servicioId(), empleadoId: h.empleadoId, inicioLocal: aIsoConDesfase(this.fecha(), h.hora) }, this.silencio)
+      .post<Cita>('/api/citas', { clienteId: c.id, servicioId: this.servicioId(), empleadoId: h.empleadoId, inicioLocal: aIsoConDesfase(this.fecha(), h.hora) }, this.silencio)
       .subscribe({
-        next: () => {
+        next: (cita) => {
           this.enviando.set(false);
           this.notificaciones.exito('La cita se agendó correctamente.');
-          this.creada.emit();
+          this.creada.emit(cita);
         },
         error: (err: unknown) => {
           this.enviando.set(false);

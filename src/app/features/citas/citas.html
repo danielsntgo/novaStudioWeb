@@ -98,7 +98,7 @@
 <app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" (cerrar)="cerrarPanel()">
   @if (panel(); as p) {
     @if (p.tipo === 'nueva') {
-      <app-nueva-cita [fechaInicial]="fecha()" (creada)="alCambiar()" (cerrar)="cerrarPanel()" />
+      <app-nueva-cita [fechaInicial]="fecha()" (creada)="alCambiar($event)" (cerrar)="cerrarPanel()" />
     } @else {
       <app-detalle-cita [cita]="p.cita" (cambio)="alCambiar()" (cerrar)="cerrarPanel()" />
     }
