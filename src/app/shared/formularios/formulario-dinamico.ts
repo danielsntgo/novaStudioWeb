@@ -77,6 +77,7 @@ export class FormularioDinamico {
           if (visible && control.disabled && !campo.deshabilitado) control.enable({ emitEvent: false });
           if (!visible && control.enabled) control.disable({ emitEvent: false });
         }
+        this.validarOpcionesDinamicas(form);
       };
       aplicarVisibilidad();
       this.cambios.update((n) => n + 1);
@@ -91,6 +92,11 @@ export class FormularioDinamico {
   protected esVisible(campo: CampoForm): boolean {
     this.cambios();
     return !campo.visibleSi || campo.visibleSi(this.formulario().getRawValue());
+  }
+
+  protected opciones(campo: CampoForm) {
+    this.cambios();
+    return campo.opcionesSegun?.(this.formulario().getRawValue()) ?? campo.opciones ?? [];
   }
 
   protected tipoHtml(campo: CampoForm): string {
@@ -123,6 +129,7 @@ export class FormularioDinamico {
     if (!control.touched || !control.errors) return null;
     const e = control.errors;
     if (e['required']) return 'Este campo es obligatorio.';
+    if (e['opcionNoValida']) return 'Selecciona una opción válida para los valores actuales.';
     if (e['email']) return 'Escribe un correo válido.';
     if (e['min']) return `Debe ser mayor o igual a ${campo.min}.`;
     if (e['maxlength']) return `Máximo ${campo.maximo} caracteres.`;
@@ -132,6 +139,7 @@ export class FormularioDinamico {
   protected enviar(): void {
     const form = this.formulario();
     form.markAllAsTouched();
+    this.validarOpcionesDinamicas(form);
     this.cambios.update((n) => n + 1);
     if (form.invalid || this.enviando()) return;
 
@@ -142,6 +150,24 @@ export class FormularioDinamico {
       resultado[campo.nombre] = this.convertir(campo, bruto[campo.nombre]);
     }
     this.guardar.emit(resultado);
+  }
+
+  private validarOpcionesDinamicas(form: FormGroup<Controles>): void {
+    const valor = form.getRawValue();
+    for (const campo of this.campos()) {
+      if (campo.tipo !== 'seleccion' || !campo.opcionesSegun || (campo.visibleSi && !campo.visibleSi(valor))) continue;
+      const control = form.controls[campo.nombre];
+      const seleccion = control.value;
+      const valida = typeof seleccion === 'string' && campo.opcionesSegun(valor).some((opcion) => opcion.valor === seleccion);
+      const errores = control.errors ?? {};
+      if (seleccion !== '' && !valida) {
+        control.setErrors({ ...errores, opcionNoValida: true });
+      } else if (errores['opcionNoValida']) {
+        const resto = { ...errores };
+        delete resto['opcionNoValida'];
+        control.setErrors(Object.keys(resto).length ? resto : null);
+      }
+    }
   }
 
   private convertir(campo: CampoForm, valor: unknown): unknown {

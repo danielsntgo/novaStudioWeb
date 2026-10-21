@@ -64,11 +64,9 @@ Si cambia la URL del backend, actualice también la regla `/api/*` de `render.ya
 ## Estado
 
 - **Fase 0** (base): login, cambio de contraseña, sesión, interceptores, guards por rol, layout.
-- **Módulos con el backend ya disponible, construidos:** Clientes, Servicios, Empleados (con horario
-  semanal), Usuarios, Configuración (negocio, impuestos, métodos de pago, numeración), Inventario
-  (artículos, entradas, salidas y movimientos), Proveedores, Compras y Citas (agenda de día y de semana).
-- **Pendientes** (el backend aún no los expone): Ventas, Facturación, Caja, Comisiones y Reportes.
-  Mientras tanto muestran una pantalla "pendiente".
+- **Módulos construidos:** Clientes, Servicios, Empleados (con horario semanal), Usuarios,
+  Configuración, Inventario, Proveedores, Compras, Citas, Caja, Ventas, Facturación, Comisiones,
+  Reportes y Finanzas. El menú y los guards restringen Finanzas a Administrador.
 
 ## Pantallas de listado
 

@@ -1,8 +1,15 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { catchError, map, of } from 'rxjs';
+import { SILENCIAR_ERRORES } from '../../core/api/contextos';
+import { normalizarPagina, parametros } from '../../core/api/paginas';
+import { mensajeDeError } from '../../core/api/problema';
 import { ConfigCrud } from '../../shared/crud/config-crud';
 import { ListaCrud } from '../../shared/crud/lista-crud';
 import { columnaEstado } from '../../shared/componentes/tabla';
 import { numero } from '../../core/api/paginas';
+import { OpcionCampo } from '../../shared/formularios/campos';
 import { DatosNegocio } from './datos-negocio';
 import { Numeracion } from './numeracion';
 
@@ -18,20 +25,34 @@ interface MetodoPago {
   nombre: string;
   requiereReferencia: boolean;
   esEfectivo: boolean;
+  cuentaFinancieraId: string;
+  cuentaFinancieraNombre: string;
   activo: boolean;
+}
+
+interface CuentaFinanciera {
+  id: string;
+  nombre: string;
+  tipo: string;
+  activa: boolean;
 }
 
 type Pestana = 'negocio' | 'impuestos' | 'pagos' | 'numeracion';
 
 @Component({
   selector: 'app-configuracion',
-  imports: [ListaCrud, DatosNegocio, Numeracion],
+  imports: [ListaCrud, DatosNegocio, Numeracion, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './configuracion.html',
   styleUrl: './configuracion.css',
 })
-export class Configuracion {
+export class Configuracion implements OnInit {
+  private readonly http = inject(HttpClient);
+
   protected readonly pestana = signal<Pestana>('negocio');
+  protected readonly cuentas = signal<CuentaFinanciera[]>([]);
+  protected readonly cargandoCuentas = signal(true);
+  protected readonly errorCuentas = signal<string | null>(null);
 
   protected readonly pestanas: { id: Pestana; titulo: string }[] = [
     { id: 'negocio', titulo: 'Negocio' },
@@ -79,6 +100,7 @@ export class Configuracion {
     incrustado: true,
     columnas: [
       { titulo: 'Método', valor: (m) => m.nombre },
+      { titulo: 'Cuenta financiera', valor: (m) => m.cuentaFinancieraNombre },
       {
         titulo: 'Tipo',
         valor: (m) => (m.esEfectivo ? 'Efectivo' : 'No efectivo'),
@@ -93,10 +115,18 @@ export class Configuracion {
       },
       columnaEstado<MetodoPago>(),
     ],
-    campos: [
+    campos: () => [
       { nombre: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, marcador: 'Ej.: Efectivo, Tarjeta, Transferencia' },
       { nombre: 'esEfectivo', etiqueta: 'Es pago en efectivo', tipo: 'casilla', ayuda: 'Solo puede existir un método marcado como efectivo.' },
       { nombre: 'requiereReferencia', etiqueta: 'Requiere número de referencia', tipo: 'casilla', ayuda: 'Pide el comprobante o número de transacción al cobrar.' },
+      {
+        nombre: 'cuentaFinancieraId',
+        etiqueta: 'Cuenta financiera',
+        tipo: 'seleccion',
+        requerido: true,
+        opcionesSegun: (valor) => this.opcionesCuentas(valor['esEfectivo'] === true),
+        ayuda: 'El efectivo se asigna a una cuenta de efectivo; los demás medios a banco, billetera u otro.',
+      },
     ],
     puedeCrear: true,
     puedeEditar: true,
@@ -105,4 +135,36 @@ export class Configuracion {
     mensajeActualizado: 'El método de pago se actualizó correctamente.',
     vacio: { titulo: 'Sin métodos de pago', detalle: 'Agrega al menos uno para poder cobrar.' },
   };
+
+  ngOnInit(): void {
+    this.cargarCuentas();
+  }
+
+  protected cargarCuentas(): void {
+    this.cargandoCuentas.set(true);
+    this.errorCuentas.set(null);
+    this.http
+      .get<unknown>('/api/finanzas/cuentas', {
+        context: new HttpContext().set(SILENCIAR_ERRORES, true),
+        params: parametros({ activa: true, pagina: 1, tamanoPagina: 100 }),
+      })
+      .pipe(
+        map((respuesta) => normalizarPagina<CuentaFinanciera>(respuesta, 100).elementos),
+        catchError((error: unknown) => {
+          this.errorCuentas.set(mensajeDeError(error, 'No se pudieron cargar las cuentas financieras.'));
+          return of([] as CuentaFinanciera[]);
+        }),
+      )
+      .subscribe((cuentas) => {
+        this.cuentas.set(cuentas.filter((cuenta) => cuenta.activa));
+        this.cargandoCuentas.set(false);
+      });
+  }
+
+  protected opcionesCuentas(esEfectivo: boolean): OpcionCampo[] {
+    const tiposPermitidos = esEfectivo ? ['Efectivo'] : ['Banco', 'Billetera', 'Otro'];
+    return this.cuentas()
+      .filter((cuenta) => tiposPermitidos.includes(cuenta.tipo))
+      .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${cuenta.tipo}` }));
+  }
 }

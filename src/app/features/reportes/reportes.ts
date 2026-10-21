@@ -10,7 +10,7 @@ import { formatearFechaHora, inicioDiaUtc, sumarDias } from '../../core/tiempo/z
 import { Icono } from '../../shared/componentes/icono';
 import { formatearMoneda } from '../../shared/formato/formato';
 
-type TipoReporte = 'ventas' | 'ingresos' | 'productos' | 'servicios' | 'inventario' | 'compras' | 'caja' | 'clientes' | 'empleados' | 'comisiones';
+type TipoReporte = 'ventas' | 'ingresos' | 'productos' | 'servicios' | 'inventario' | 'compras' | 'caja' | 'clientes' | 'empleados' | 'comisiones' | 'cuentas';
 type FormatoExportacion = 'pdf' | 'xlsx' | 'csv';
 
 interface Opcion {
@@ -55,6 +55,7 @@ const TIPOS: { id: TipoReporte; titulo: string }[] = [
   { id: 'clientes', titulo: 'Clientes' },
   { id: 'empleados', titulo: 'Empleados' },
   { id: 'comisiones', titulo: 'Comisiones' },
+  { id: 'cuentas', titulo: 'Cuentas' },
 ];
 
 @Component({
@@ -80,6 +81,7 @@ export class Reportes implements OnInit {
   protected readonly servicioId = signal('');
   protected readonly proveedorId = signal('');
   protected readonly metodoPagoId = signal('');
+  protected readonly cuentaFinancieraId = signal('');
 
   protected readonly clientes = signal<Opcion[]>([]);
   protected readonly empleados = signal<Opcion[]>([]);
@@ -87,6 +89,7 @@ export class Reportes implements OnInit {
   protected readonly servicios = signal<Opcion[]>([]);
   protected readonly proveedores = signal<Opcion[]>([]);
   protected readonly metodos = signal<Opcion[]>([]);
+  protected readonly cuentasFinancieras = signal<Opcion[]>([]);
 
   protected readonly reporte = signal<Reporte | null>(null);
   protected readonly cargando = signal(true);
@@ -106,6 +109,7 @@ export class Reportes implements OnInit {
       servicios: this.lista<Opcion>('/api/servicios/administracion', { activo: true, tamanoPagina: 100 }),
       proveedores: this.lista<Opcion>('/api/proveedores', { activo: true, tamanoPagina: 100 }),
       metodos: this.lista<Opcion>('/api/configuracion/metodos-pago', {}),
+      cuentasFinancieras: this.lista<Opcion>('/api/finanzas/cuentas', { tamanoPagina: 100 }),
     }).subscribe((r) => {
       this.clientes.set(r.clientes);
       this.empleados.set(r.empleados);
@@ -113,6 +117,7 @@ export class Reportes implements OnInit {
       this.servicios.set(r.servicios);
       this.proveedores.set(r.proveedores);
       this.metodos.set(r.metodos);
+      this.cuentasFinancieras.set(r.cuentasFinancieras);
     });
   }
 
@@ -147,6 +152,7 @@ export class Reportes implements OnInit {
     this.servicioId.set('');
     this.proveedorId.set('');
     this.metodoPagoId.set('');
+    this.cuentaFinancieraId.set('');
     this.cargarReporte();
   }
 
@@ -185,6 +191,7 @@ export class Reportes implements OnInit {
       servicioId: this.admiteServicio() ? this.servicioId() : null,
       proveedorId: this.tipo() === 'compras' ? this.proveedorId() : null,
       metodoPagoId: this.tipo() === 'ingresos' ? this.metodoPagoId() : null,
+      cuentaFinancieraId: this.tipo() === 'cuentas' ? this.cuentaFinancieraId() : null,
       estado: this.estadosDisponibles().length ? this.estado() : null,
       limite: this.limite(),
     });

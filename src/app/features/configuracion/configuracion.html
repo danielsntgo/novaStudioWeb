@@ -16,7 +16,20 @@
     @switch (pestana()) {
       @case ('negocio') { <app-datos-negocio /> }
       @case ('impuestos') { <app-lista-crud [config]="impuestos" /> }
-      @case ('pagos') { <app-lista-crud [config]="pagos" /> }
+      @case ('pagos') {
+        @if (cargandoCuentas()) {
+          <section class="fp-tarjeta aviso-cuentas">Cargando cuentas financieras…</section>
+        } @else if (errorCuentas(); as mensaje) {
+          <div class="fp-alerta" role="alert">{{ mensaje }} <button type="button" class="fp-enlace" (click)="cargarCuentas()">Reintentar</button></div>
+        } @else if (!cuentas().length) {
+          <section class="fp-tarjeta aviso-cuentas">
+            <p>Antes de crear métodos de pago, crea al menos una cuenta financiera.</p>
+            <a routerLink="/finanzas">Ir a Finanzas</a>
+          </section>
+        } @else {
+          <app-lista-crud [config]="pagos" />
+        }
+      }
       @case ('numeracion') { <app-numeracion /> }
     }
   </div>

@@ -17,6 +17,7 @@ const MODULOS_LISTOS: Record<string, () => Promise<unknown>> = {
   facturacion: () => import('./features/facturacion/facturacion').then((m) => m.Facturacion),
   comisiones: () => import('./features/comisiones/comisiones').then((m) => m.Comisiones),
   reportes: () => import('./features/reportes/reportes').then((m) => m.Reportes),
+  finanzas: () => import('./features/finanzas/finanzas').then((m) => m.Finanzas),
   proveedores: () => import('./features/proveedores/proveedores').then((m) => m.Proveedores),
   configuracion: () => import('./features/configuracion/configuracion').then((m) => m.Configuracion),
 };

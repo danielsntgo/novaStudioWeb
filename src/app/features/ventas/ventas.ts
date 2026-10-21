@@ -1,7 +1,8 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap, tap } from 'rxjs';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
 import { Pagina, normalizarPagina, numero, parametros } from '../../core/api/paginas';
 import { mensajeDeError } from '../../core/api/problema';
@@ -39,9 +40,9 @@ interface ProductoVenta {
   id: string;
   codigo?: string | null;
   nombre: string;
-  categoria?: string | null;
   unidadBase: string;
   manejaFraccion: boolean;
+  existenciaActual: number | string;
   precioVenta?: number | string | null;
   codigoMoneda: string;
 }
@@ -62,10 +63,21 @@ interface MetodoPago {
   nombre: string;
   requiereReferencia: boolean;
   esEfectivo: boolean;
-  activo: boolean;
 }
 
 interface ConfiguracionNegocio {
+  permitirVentaSinStock: boolean;
+  permitirSaldosPendientes: boolean;
+  facturacionHabilitada: boolean;
+  exigirEmpleadoVentaServicio: boolean;
+}
+
+interface CatalogoVentas {
+  metodosPago: MetodoPago[];
+  impuestos: Impuesto[];
+  empleados: Empleado[];
+  codigoMoneda: string;
+  permitirVentaSinStock: boolean;
   permitirSaldosPendientes: boolean;
   facturacionHabilitada: boolean;
   exigirEmpleadoVentaServicio: boolean;
@@ -85,6 +97,7 @@ interface CatalogoItem {
   codigoMoneda: string;
   unidad: string;
   manejaFraccion: boolean;
+  existenciaActual?: number | string;
 }
 
 interface LineaCarrito {
@@ -172,6 +185,7 @@ const ESTADOS_VENTA = ['Finalizada', 'ParcialmenteDevuelta', 'Devuelta', 'Anulad
 })
 export class Ventas implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly confirmacion = inject(ConfirmacionService);
   private readonly sesion = inject(SesionService);
@@ -186,6 +200,7 @@ export class Ventas implements OnInit {
   protected readonly impuestos = signal<Impuesto[]>([]);
   protected readonly metodosPago = signal<MetodoPago[]>([]);
   protected readonly configuracion = signal<ConfiguracionNegocio | null>(null);
+  protected readonly monedaConfigurada = signal('COP');
   protected readonly cajaActual = signal<CajaActual | null>(null);
   protected readonly cargandoCatalogos = signal(true);
   protected readonly errorCatalogos = signal<string | null>(null);
@@ -216,6 +231,32 @@ export class Ventas implements OnInit {
   protected readonly errorAccion = signal<string | null>(null);
 
   private siguienteUid = 1;
+  private readonly busquedasProductos$ = new Subject<string>();
+
+  constructor() {
+    this.busquedasProductos$
+      .pipe(
+        debounceTime(250),
+        distinctUntilChanged(),
+        tap(() => this.cargandoCatalogos.set(true)),
+        switchMap((texto) =>
+          this.cargarProductos(texto).pipe(
+            catchError((error: unknown) => {
+              this.errorCatalogos.set(mensajeDeError(error, 'No se pudieron buscar los productos.'));
+              return of(null);
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((productos) => {
+        if (productos) {
+          this.errorCatalogos.set(null);
+          this.productos.set(productos.filter((p) => p.precioVenta !== null && p.precioVenta !== undefined));
+        }
+        this.cargandoCatalogos.set(false);
+      });
+  }
 
   protected readonly columnas: Columna<Venta>[] = [
     { titulo: 'Fecha', valor: (v) => formatearFechaHora(v.fechaVentaUtc) },
@@ -244,11 +285,12 @@ export class Ventas implements OnInit {
       tipo: 'Producto' as const,
       id: p.id,
       nombre: p.nombre,
-      secundario: [p.codigo, p.categoria, p.unidadBase].filter(Boolean).join(' · '),
+      secundario: [p.codigo, p.unidadBase, `Disponible: ${formatearCantidad(p.existenciaActual)}`].filter(Boolean).join(' · '),
       precio: numero(p.precioVenta),
       codigoMoneda: p.codigoMoneda,
       unidad: p.unidadBase,
       manejaFraccion: p.manejaFraccion,
+      existenciaActual: p.existenciaActual,
     })),
   ]);
 
@@ -271,7 +313,7 @@ export class Ventas implements OnInit {
   );
   protected readonly totalPreview = computed(() => Math.max(0, this.baseDespuesDescuento() + this.impuestosCalculados()));
   protected readonly totalPagos = computed(() => this.pagos().reduce((suma, p) => suma + numero(p.importe), 0));
-  protected readonly moneda = computed(() => this.carrito()[0]?.codigoMoneda ?? 'COP');
+  protected readonly moneda = computed(() => this.carrito()[0]?.codigoMoneda ?? this.monedaConfigurada());
 
   protected readonly problemaVenta = computed(() => {
     if (!this.cajaActual()) return 'Abre una caja antes de finalizar ventas.';
@@ -341,21 +383,24 @@ export class Ventas implements OnInit {
     forkJoin({
       clientes: this.lista<Cliente>('/api/clientes', { activo: true, tamanoPagina: 100 }),
       servicios: this.lista<ServicioVenta>('/api/servicios', { tamanoPagina: 100 }),
-      productos: this.lista<ProductoVenta>('/api/inventario/articulos', { tipo: 'Producto', activo: true, tamanoPagina: 100 }).pipe(catchError(() => of([] as ProductoVenta[]))),
-      empleados: this.lista<Empleado>('/api/empleados', { activo: true, tamanoPagina: 100 }).pipe(catchError(() => of([] as Empleado[]))),
-      impuestos: this.lista<Impuesto>('/api/configuracion/impuestos', {}).pipe(catchError(() => of([] as Impuesto[]))),
-      metodos: this.lista<MetodoPago>('/api/configuracion/metodos-pago', {}).pipe(catchError(() => of([] as MetodoPago[]))),
-      configuracion: this.http.get<ConfiguracionNegocio>('/api/configuracion', { context: SILENCIO() }).pipe(catchError(() => of(null))),
+      productos: this.cargarProductos(this.busquedaCatalogo()),
+      catalogo: this.http.get<CatalogoVentas>('/api/ventas/catalogo', { context: SILENCIO() }),
       caja: this.http.get<CajaActual | null>('/api/caja/actual', { context: SILENCIO() }).pipe(catchError(() => of(null))),
     }).subscribe({
       next: (r) => {
         this.clientes.set(r.clientes);
         this.servicios.set(r.servicios);
         this.productos.set(r.productos.filter((p) => p.precioVenta !== null && p.precioVenta !== undefined));
-        this.empleados.set(r.empleados);
-        this.impuestos.set(r.impuestos.filter((i) => true));
-        this.metodosPago.set(r.metodos.filter((m) => m.activo !== false));
-        this.configuracion.set(r.configuracion);
+        this.empleados.set(r.catalogo.empleados);
+        this.impuestos.set(r.catalogo.impuestos);
+        this.metodosPago.set(r.catalogo.metodosPago);
+        this.monedaConfigurada.set(r.catalogo.codigoMoneda);
+        this.configuracion.set({
+          permitirVentaSinStock: r.catalogo.permitirVentaSinStock,
+          permitirSaldosPendientes: r.catalogo.permitirSaldosPendientes,
+          facturacionHabilitada: r.catalogo.facturacionHabilitada,
+          exigirEmpleadoVentaServicio: r.catalogo.exigirEmpleadoVentaServicio,
+        });
         this.cajaActual.set(r.caja);
         this.cargandoCatalogos.set(false);
       },
@@ -368,6 +413,20 @@ export class Ventas implements OnInit {
 
   private lista<T>(url: string, filtros: Record<string, string | number | boolean>) {
     return this.http.get<unknown>(url, { context: SILENCIO(), params: parametros(filtros) }).pipe(map((r) => normalizarPagina<T>(r, 100).elementos));
+  }
+
+  private cargarProductos(buscar: string) {
+    return this.http
+      .get<unknown>('/api/ventas/catalogo/productos', {
+        context: SILENCIO(),
+        params: parametros({ buscar: buscar.trim() || null, pagina: 1, tamanoPagina: 100 }),
+      })
+      .pipe(map((r) => normalizarPagina<ProductoVenta>(r, 100).elementos));
+  }
+
+  protected cambiarBusquedaCatalogo(texto: string): void {
+    this.busquedaCatalogo.set(texto);
+    this.busquedasProductos$.next(texto);
   }
 
   protected agregarItem(item: CatalogoItem): void {

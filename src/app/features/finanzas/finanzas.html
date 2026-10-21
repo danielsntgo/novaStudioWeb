@@ -1,0 +1,184 @@
+<div class="fp-pagina">
+  <header class="fp-pagina__cabecera">
+    <div>
+      <h1 class="fp-pagina__titulo">Finanzas</h1>
+      <p class="fp-pagina__subtitulo">Cuentas, saldos y movimientos del negocio.</p>
+    </div>
+    @if (vista() === 'cuentas') {
+      <button type="button" class="fp-boton" (click)="abrirNuevaCuenta()"><svg app-icono="mas" [tamano]="16"></svg> Nueva cuenta</button>
+    } @else {
+      <button type="button" class="fp-boton" (click)="abrirTransferencia()" [disabled]="opcionesOrigen().length === 0 || cuentasActivas().length < 2"><svg app-icono="mas" [tamano]="16"></svg> Nueva transferencia</button>
+    }
+  </header>
+
+  <section class="resumen">
+    <article class="fp-tarjeta">
+      <span>Disponible</span>
+      <strong>{{ resumen() ? formato(resumen()!.disponibleTotal) : '—' }}</strong>
+    </article>
+    <article class="fp-tarjeta">
+      <span>Deuda en tarjetas</span>
+      <strong>{{ resumen() ? formato(resumen()!.deudaTarjetasTotal) : '—' }}</strong>
+    </article>
+    <article class="fp-tarjeta">
+      <span>Cuentas activas</span>
+      <strong>{{ resumen() ? texto(resumen()!.cuentasActivas) : '—' }}</strong>
+    </article>
+  </section>
+
+  <div class="fp-segmento pestanas" role="tablist" aria-label="Secciones de finanzas">
+    <button type="button" role="tab" [class.activo]="vista() === 'cuentas'" [attr.aria-selected]="vista() === 'cuentas'" (click)="cambiarVista('cuentas')">Cuentas y movimientos</button>
+    <button type="button" role="tab" [class.activo]="vista() === 'transferencias'" [attr.aria-selected]="vista() === 'transferencias'" (click)="cambiarVista('transferencias')">Transferencias</button>
+  </div>
+
+  @if (vista() === 'cuentas') {
+    <form class="filtros fp-tarjeta" (ngSubmit)="filtrarCuentas()">
+      <label>Buscar
+        <input class="fp-input" type="search" name="buscarCuenta" maxlength="120" placeholder="Nombre o entidad" [ngModel]="buscarCuenta()" (ngModelChange)="buscarCuenta.set($event)" />
+      </label>
+      <label>Tipo
+        <select class="fp-input fp-select" name="tipoCuenta" [ngModel]="tipoCuenta()" (ngModelChange)="tipoCuenta.set($event)">
+          <option value="">Todos</option>
+          @for (tipo of tiposCuenta; track tipo.valor) { <option [value]="tipo.valor">{{ tipo.etiqueta }}</option> }
+        </select>
+      </label>
+      <label>Estado
+        <select class="fp-input fp-select" name="estadoCuenta" [ngModel]="estadoCuenta()" (ngModelChange)="estadoCuenta.set($event)">
+          <option value="true">Activas</option>
+          <option value="false">Inactivas</option>
+          <option value="">Todas</option>
+        </select>
+      </label>
+      <button type="submit" class="fp-boton fp-boton--secundario">Aplicar filtros</button>
+    </form>
+
+    @if (errorCuentas(); as mensaje) {
+      <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarCuentas()">Reintentar</button></div>
+    }
+
+    <section class="fp-tarjeta tabla" [attr.aria-busy]="cargandoCuentas()">
+      <div class="tabla__scroll">
+        <table>
+          <thead><tr><th>Cuenta</th><th>Tipo</th><th>Entidad</th><th>Saldo</th><th>Estado</th><th class="acciones-columna">Acciones</th></tr></thead>
+          <tbody>
+            @for (cuenta of cuentas(); track cuenta.id) {
+              <tr>
+                <td><button type="button" class="nombre-cuenta" (click)="abrirMovimientos(cuenta)">{{ cuenta.nombre }}</button><small>{{ cuenta.codigoMoneda }}@if (cuenta.ultimosDigitos) { · •••• {{ cuenta.ultimosDigitos }} }</small></td>
+                <td>{{ cuenta.tipo === 'Billetera' ? 'Billetera digital' : cuenta.tipo === 'TarjetaCredito' ? 'Tarjeta de crédito' : cuenta.tipo }}</td>
+                <td>{{ cuenta.entidad || '—' }}</td>
+                <td class="importe">{{ formato(cuenta.saldo, cuenta.codigoMoneda) }}</td>
+                <td><span class="estado" [class.inactivo]="!cuenta.activa">{{ cuenta.activa ? 'Activa' : 'Inactiva' }}</span></td>
+                <td class="acciones-fila">
+                  <button type="button" class="fp-enlace" (click)="abrirMovimientos(cuenta)">Movimientos</button>
+                  <button type="button" class="fp-enlace" (click)="editarCuenta(cuenta)">Editar</button>
+                  <button type="button" class="fp-enlace" (click)="cambiarEstado(cuenta)">{{ cuenta.activa ? 'Desactivar' : 'Activar' }}</button>
+                </td>
+              </tr>
+            } @empty {
+              @if (!cargandoCuentas()) { <tr><td colspan="6" class="vacio">No hay cuentas para estos filtros.</td></tr> }
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-paginador [pagina]="paginaCuentas()" [tamano]="20" [total]="totalCuentas()" (cambio)="paginaCuentas.set($event); cargarCuentas()" />
+    </section>
+  } @else {
+    <form class="filtros fp-tarjeta" (ngSubmit)="filtrarTransferencias()">
+      <label>Desde <input type="date" class="fp-input" name="desdeTransferencias" [ngModel]="desdeTransferencias()" (ngModelChange)="desdeTransferencias.set($event)" /></label>
+      <label>Hasta <input type="date" class="fp-input" name="hastaTransferencias" [ngModel]="hastaTransferencias()" (ngModelChange)="hastaTransferencias.set($event)" /></label>
+      <label>Cuenta
+        <select class="fp-input fp-select" name="cuentaTransferencia" [ngModel]="cuentaTransferencia()" (ngModelChange)="cuentaTransferencia.set($event)">
+          <option value="">Todas</option>
+          @for (cuenta of cuentasActivas(); track cuenta.id) { <option [value]="cuenta.id">{{ cuenta.nombre }}</option> }
+        </select>
+      </label>
+      <button type="submit" class="fp-boton fp-boton--secundario">Aplicar filtros</button>
+    </form>
+
+    @if (errorTransferencias(); as mensaje) {
+      <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarTransferencias()">Reintentar</button></div>
+    }
+
+    <section class="fp-tarjeta tabla" [attr.aria-busy]="cargandoTransferencias()">
+      <div class="tabla__scroll">
+        <table>
+          @if (columnasTransferencia().length) {
+            <thead><tr>@for (columna of columnasTransferencia(); track columna.clave) { <th>{{ columna.etiqueta }}</th> }</tr></thead>
+            <tbody>
+              @for (fila of transferencias(); track $index) {
+                <tr>@for (columna of columnasTransferencia(); track columna.clave) { <td>{{ valorTransferencia(fila, columna.clave) }}</td> }</tr>
+              }
+            </tbody>
+          } @else {
+            <tbody><tr><td class="vacio">{{ cargandoTransferencias() ? 'Cargando transferencias…' : 'No hay transferencias para estos filtros.' }}</td></tr></tbody>
+          }
+        </table>
+      </div>
+      <app-paginador [pagina]="paginaTransferencias()" [tamano]="20" [total]="totalTransferencias()" (cambio)="paginaTransferencias.set($event); cargarTransferencias()" />
+    </section>
+  }
+
+  @if (panel(); as p) {
+    <app-panel-lateral [abierto]="true" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" [ancho]="p.tipo === 'movimientos' ? 'ancho' : 'normal'" (cerrar)="cerrarPanel()">
+      @if (p.tipo === 'cuenta') {
+        <app-formulario-dinamico
+          [campos]="camposCuenta"
+          [valorInicial]="valorInicialCuenta()"
+          [enviando]="enviando()"
+          [error]="errorEnvio()"
+          [erroresServidor]="erroresCampos()"
+          [textoGuardar]="p.cuenta ? 'Guardar cambios' : 'Crear cuenta'"
+          (guardar)="guardarFormulario($event)"
+          (cancelar)="cerrarPanel()"
+        />
+      } @else if (p.tipo === 'transferencia') {
+        <p class="nota">La transferencia registra movimientos de salida y entrada. El saldo disponible y la caja abierta se validan en el servidor.</p>
+        <app-formulario-dinamico
+          [campos]="camposTransferencia()"
+          [enviando]="enviando()"
+          [error]="errorEnvio()"
+          [erroresServidor]="erroresCampos()"
+          textoGuardar="Registrar transferencia"
+          (guardar)="guardarFormulario($event)"
+          (cancelar)="cerrarPanel()"
+        />
+      } @else {
+        <form class="filtros filtros-movimientos" (ngSubmit)="paginaMovimientos.set(1); cargarMovimientos()">
+          <label>Desde <input type="date" class="fp-input" name="desdeMovimientos" [ngModel]="desdeMovimientos()" (ngModelChange)="desdeMovimientos.set($event)" /></label>
+          <label>Hasta <input type="date" class="fp-input" name="hastaMovimientos" [ngModel]="hastaMovimientos()" (ngModelChange)="hastaMovimientos.set($event)" /></label>
+          <label>Movimiento
+            <select class="fp-input fp-select" name="tipoMovimiento" [ngModel]="tipoMovimiento()" (ngModelChange)="tipoMovimiento.set($event)">
+              <option value="">Todos</option>
+              @for (tipo of tiposMovimiento; track tipo) { <option [value]="tipo">{{ etiquetaMovimiento(tipo) }}</option> }
+            </select>
+          </label>
+          <button type="submit" class="fp-boton fp-boton--secundario">Filtrar</button>
+        </form>
+
+        @if (errorMovimientos(); as mensaje) { <div class="fp-alerta error" role="alert">{{ mensaje }}</div> }
+        <section class="fp-tarjeta tabla tabla-movimientos" [attr.aria-busy]="cargandoMovimientos()">
+          <div class="tabla__scroll">
+            <table>
+              <thead><tr><th>Fecha</th><th>Movimiento</th><th>Sentido</th><th>Importe</th><th>Saldo posterior</th><th>Origen</th></tr></thead>
+              <tbody>
+                @for (movimiento of movimientos(); track movimiento.id) {
+                  <tr>
+                    <td>{{ fechaHora(movimiento.fechaUtc) }}</td>
+                    <td>{{ etiquetaMovimiento(movimiento.tipo) }}<small>{{ movimiento.concepto || (movimiento.migrado ? 'Importado de historial anterior' : '') }}</small></td>
+                    <td><span class="sentido" [class.salida]="movimiento.sentido === 'Salida'">{{ movimiento.sentido }}</span></td>
+                    <td class="importe">{{ formato(movimiento.importe, movimiento.codigoMoneda) }}</td>
+                    <td class="importe">{{ formato(movimiento.saldoPosterior, movimiento.codigoMoneda) }}</td>
+                    <td>{{ movimiento.migrado ? 'Migrado' : movimiento.ventaId ? 'Venta' : movimiento.transferenciaFinancieraId ? 'Transferencia' : movimiento.cajaId ? 'Caja' : '—' }}</td>
+                  </tr>
+                } @empty {
+                  @if (!cargandoMovimientos()) { <tr><td colspan="6" class="vacio">No hay movimientos para estos filtros.</td></tr> }
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-paginador [pagina]="paginaMovimientos()" [tamano]="20" [total]="totalMovimientos()" (cambio)="paginaMovimientos.set($event); cargarMovimientos()" />
+        </section>
+      }
+    </app-panel-lateral>
+  }
+</div>

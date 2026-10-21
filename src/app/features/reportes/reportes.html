@@ -70,6 +70,14 @@
         </select>
       </label>
     }
+    @if (tipo() === 'cuentas') {
+      <label>Cuenta financiera
+        <select class="fp-input fp-select" [ngModel]="cuentaFinancieraId()" (ngModelChange)="cuentaFinancieraId.set($event); cargarReporte()">
+          <option value="">Todas</option>
+          @for (c of cuentasFinancieras(); track c.id) { <option [value]="c.id">{{ c.nombre }}</option> }
+        </select>
+      </label>
+    }
     @if (estadosDisponibles().length) {
       <label>Estado
         <select class="fp-input fp-select" [ngModel]="estado()" (ngModelChange)="estado.set($event); cargarReporte()">

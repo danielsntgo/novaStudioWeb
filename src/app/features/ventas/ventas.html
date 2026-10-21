@@ -27,7 +27,7 @@
 
         <label class="busqueda">
           <svg app-icono="buscar" [tamano]="17"></svg>
-          <input type="search" class="fp-input" placeholder="Buscar servicio o producto" [ngModel]="busquedaCatalogo()" (ngModelChange)="busquedaCatalogo.set($event)" />
+          <input type="search" class="fp-input" maxlength="120" placeholder="Buscar servicio o producto" [disabled]="cargandoCatalogos()" [ngModel]="busquedaCatalogo()" (ngModelChange)="cambiarBusquedaCatalogo($event)" />
         </label>
 
         <div class="items" [attr.aria-busy]="cargandoCatalogos()">

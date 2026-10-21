@@ -30,7 +30,7 @@
               @case ('seleccion') {
                 <select class="fp-input fp-select" [id]="'campo-' + campo.nombre" [formControlName]="campo.nombre">
                   <option value="">{{ campo.marcador ?? 'Selecciona una opción' }}</option>
-                  @for (op of campo.opciones ?? []; track op.valor) {
+                  @for (op of opciones(campo); track op.valor) {
                     <option [value]="op.valor">{{ op.etiqueta }}</option>
                   }
                 </select>

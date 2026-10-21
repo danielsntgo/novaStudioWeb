@@ -41,6 +41,7 @@ export const ITEMS_MENU: readonly ItemMenu[] = [
 
   { ruta: 'comisiones', titulo: 'Comisiones', icono: 'porcentaje', descripcion: 'Comisiones de los empleados', roles: SOLO_ADMIN, grupo: 'Administración', fase: 6, backendListo: true },
   { ruta: 'reportes', titulo: 'Reportes', icono: 'grafica', descripcion: 'Análisis y exportación', roles: SOLO_ADMIN, grupo: 'Administración', fase: 7, backendListo: true },
+  { ruta: 'finanzas', titulo: 'Finanzas', icono: 'cartera', descripcion: 'Cuentas, saldos y transferencias', roles: SOLO_ADMIN, grupo: 'Administración', fase: 8, backendListo: true },
   { ruta: 'usuarios', titulo: 'Usuarios', icono: 'escudo', descripcion: 'Cuentas de acceso', roles: SOLO_ADMIN, grupo: 'Administración', fase: 1, backendListo: true },
   { ruta: 'configuracion', titulo: 'Configuración', icono: 'ajustes', descripcion: 'Negocio, impuestos y pagos', roles: SOLO_ADMIN, grupo: 'Administración', fase: 1, backendListo: true },
 ];
