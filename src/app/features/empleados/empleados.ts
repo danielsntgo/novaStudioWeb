@@ -60,6 +60,7 @@ export class Empleados {
     puedeCrear: true,
     puedeEditar: true,
     puedeCambiarEstado: true,
+    puedeEliminar: true,
     acciones: [{ id: 'horario', etiqueta: 'Horario', visible: (e) => e.activo }],
     mensajeCreado: 'El empleado se creó correctamente.',
     mensajeActualizado: 'Los datos del empleado se actualizaron.',

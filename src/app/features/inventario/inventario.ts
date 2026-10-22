@@ -103,6 +103,7 @@ export class Inventario {
     puedeCrear: true,
     puedeEditar: true,
     puedeCambiarEstado: true,
+    puedeEliminar: true,
     acciones: [
       {
         id: 'entrada',

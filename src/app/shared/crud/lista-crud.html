@@ -56,7 +56,7 @@
 
   <section class="fp-tarjeta fp-tarjeta--plana" [attr.aria-busy]="cargando()">
     <app-tabla [columnas]="c.columnas" [filas]="filas()" [cargando]="cargando()" [vacioTitulo]="c.vacio.titulo" [vacioDetalle]="c.vacio.detalle">
-      @if (c.puedeEditar || c.puedeCambiarEstado || (c.acciones?.length ?? 0) > 0) {
+      @if (c.puedeEditar || c.puedeCambiarEstado || c.puedeEliminar || (c.acciones?.length ?? 0) > 0) {
         <ng-template #acciones let-fila>
           <div class="acciones-fila">
             @if (c.puedeEditar) { <button type="button" class="fp-enlace" (click)="abrirEditar(fila)">Editar</button> }
@@ -67,6 +67,9 @@
               <button type="button" class="fp-enlace" [class.fp-enlace--peligro]="fila.activo" (click)="cambiarEstado(fila)">
                 {{ fila.activo ? 'Desactivar' : 'Activar' }}
               </button>
+            }
+            @if (c.puedeEliminar) {
+              <button type="button" class="fp-enlace fp-enlace--peligro" (click)="eliminar(fila)">Eliminar</button>
             }
           </div>
         </ng-template>

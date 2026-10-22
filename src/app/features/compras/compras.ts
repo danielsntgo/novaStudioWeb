@@ -44,7 +44,10 @@ export class Compras {
     {
       titulo: 'Estado',
       valor: (c) => c.estado,
-      insignia: (c) => ({ texto: c.estado === 'Confirmada' ? 'Confirmada' : 'Borrador', tono: c.estado === 'Confirmada' ? 'exito' : 'aviso' }),
+      insignia: (c) => ({
+        texto: c.estado === 'ParcialmenteDevuelta' ? 'Devolución parcial' : c.estado,
+        tono: c.estado === 'Confirmada' ? 'exito' : c.estado === 'Borrador' ? 'aviso' : c.estado === 'Anulada' ? 'gris' : 'azul',
+      }),
     },
     { titulo: 'Total', valor: (c) => formatearMoneda(c.total, c.codigoMoneda), alinear: 'derecha' },
   ];
@@ -53,12 +56,12 @@ export class Compras {
     const p = this.panel();
     if (!p) return '';
     if (!p.compra) return 'Nueva compra';
-    return p.compra.estado === 'Confirmada' ? 'Detalle de la compra' : 'Editar compra';
+    return p.compra.estado === 'Borrador' ? 'Editar compra' : 'Detalle de la compra';
   });
 
   protected readonly subtituloPanel = computed(() => {
     const c = this.panel()?.compra;
-    return c ? `${c.nombreProveedor} · ${c.estado === 'Confirmada' ? 'Confirmada' : 'Borrador'}` : '';
+    return c ? `${c.nombreProveedor} · ${c.estado === 'ParcialmenteDevuelta' ? 'Devolución parcial' : c.estado}` : '';
   });
 
   private readonly busqueda = signal('');
@@ -130,5 +133,10 @@ export class Compras {
   protected alGuardar(): void {
     this.panel.set(null);
     this.cargar();
+  }
+
+  protected alActualizar(compra: Compra): void {
+    this.filas.update((filas) => filas.map((fila) => fila.id === compra.id ? compra : fila));
+    this.panel.set({ compra });
   }
 }

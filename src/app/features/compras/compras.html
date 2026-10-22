@@ -16,6 +16,9 @@
       <option value="">Todos los estados</option>
       <option value="Borrador">Borrador</option>
       <option value="Confirmada">Confirmada</option>
+      <option value="ParcialmenteDevuelta">Devolución parcial</option>
+      <option value="Devuelta">Devuelta</option>
+      <option value="Anulada">Anulada</option>
     </select>
     <label class="fecha">Desde <input type="date" class="fp-input" [ngModel]="desde()" (ngModelChange)="cambiar('desde', $event)" /></label>
     <label class="fecha">Hasta <input type="date" class="fp-input" [ngModel]="hasta()" (ngModelChange)="cambiar('hasta', $event)" /></label>
@@ -28,7 +31,7 @@
   <section class="fp-tarjeta fp-tarjeta--plana">
     <app-tabla [columnas]="columnas" [filas]="filas()" [cargando]="cargando()" vacioTitulo="No hay compras" vacioDetalle="Registra tu primera compra con el botón «Nueva compra».">
       <ng-template #acciones let-fila>
-        <button type="button" class="fp-enlace" (click)="abrir(fila)">{{ fila.estado === 'Confirmada' ? 'Ver detalle' : 'Editar' }}</button>
+        <button type="button" class="fp-enlace" (click)="abrir(fila)">{{ fila.estado === 'Borrador' ? 'Editar' : 'Ver detalle' }}</button>
       </ng-template>
     </app-tabla>
     <app-paginador [pagina]="pagina()" [tamano]="20" [total]="total()" (cambio)="irA($event)" />
@@ -37,6 +40,6 @@
 
 <app-panel-lateral [abierto]="panel() !== null" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" ancho="ancho" (cerrar)="cerrarPanel()">
   @if (panel(); as p) {
-    <app-compra-panel [compra]="p.compra" (guardado)="alGuardar()" (cerrar)="cerrarPanel()" />
+    <app-compra-panel [compra]="p.compra" (guardado)="alGuardar()" (actualizada)="alActualizar($event)" (cerrar)="cerrarPanel()" />
   }
 </app-panel-lateral>

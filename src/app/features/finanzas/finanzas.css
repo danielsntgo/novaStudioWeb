@@ -55,6 +55,69 @@
   min-height: 40px;
 }
 
+.cuentas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.cuenta-card {
+  display: flex;
+  min-height: 208px;
+  flex-direction: column;
+  padding: 18px;
+}
+
+.cuenta-card__cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tipo-cuenta {
+  overflow: hidden;
+  max-width: 70%;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--fp-azul-50, #edf4ff);
+  color: var(--fp-azul-700, #2456a6);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cuenta-card__nombre {
+  margin-top: 18px;
+  font-size: 16px;
+}
+
+.cuenta-card__saldo {
+  margin-top: 8px;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cuenta-card__detalle {
+  margin-top: 5px;
+  color: var(--fp-texto-suave);
+  font-size: 12px;
+}
+
+.cuenta-card__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.cuenta-card__acciones .fp-enlace {
+  white-space: nowrap;
+}
+
 .error {
   align-items: center;
   margin-bottom: 16px;
@@ -253,5 +316,9 @@ td small {
 
   .resumen strong {
     font-size: 19px;
+  }
+
+  .cuentas-grid {
+    grid-template-columns: 1fr;
   }
 }

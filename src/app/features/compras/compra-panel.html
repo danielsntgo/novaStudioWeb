@@ -1,30 +1,108 @@
 @if (soloLectura()) {
   @let c = compra()!;
-  <div class="resumen">
-    <div><span class="etq">Proveedor</span><strong>{{ c.nombreProveedor }}</strong></div>
-    <div><span class="etq">Fecha de compra</span><strong>{{ formatoFechaHora(c.fechaCompraUtc) }}</strong></div>
-    @if (c.referencia) { <div><span class="etq">Referencia</span><strong>{{ c.referencia }}</strong></div> }
-    <div><span class="etq">Confirmada</span><strong>{{ formatoFechaHora(c.fechaConfirmacionUtc) }}</strong></div>
-  </div>
-  @if (c.observacion) { <p class="observacion">{{ c.observacion }}</p> }
+  @if (modoDetalle() === 'ver') {
+    <div class="cabecera-detalle">
+      <span class="estado-compra" [class.devuelta]="c.estado === 'Devuelta'" [class.anulada]="c.estado === 'Anulada'">{{ c.estado === 'ParcialmenteDevuelta' ? 'Devolución parcial' : c.estado }}</span>
+      <span>{{ formatoFechaHora(c.fechaCompraUtc) }}</span>
+    </div>
+    <div class="resumen">
+      <div><span class="etq">Proveedor</span><strong>{{ c.nombreProveedor }}</strong></div>
+      @if (c.referencia) { <div><span class="etq">Referencia</span><strong>{{ c.referencia }}</strong></div> }
+      <div><span class="etq">Confirmada</span><strong>{{ formatoFechaHora(c.fechaConfirmacionUtc) }}</strong></div>
+    </div>
+    @if (c.observacion) { <p class="observacion">{{ c.observacion }}</p> }
+    @if (c.motivoAnulacion) { <p class="aviso-motivo"><strong>Motivo de anulación:</strong> {{ c.motivoAnulacion }} @if (c.fechaAnulacionUtc) { <small>{{ fechaHora(c.fechaAnulacionUtc) }}</small> }</p> }
 
-  <div class="tabla-lineas">
-    <table>
-      <thead><tr><th>Artículo</th><th class="der">Cantidad</th><th class="der">Costo unit.</th><th class="der">Total</th></tr></thead>
-      <tbody>
-        @for (d of c.detalles; track d.id) {
-          <tr>
-            <td>{{ d.nombreArticulo }}</td>
-            <td class="der">{{ formatoCantidad(d.cantidad) }} {{ d.unidadBase }}</td>
-            <td class="der">{{ formatoMoneda(d.costoUnitario) }}</td>
-            <td class="der">{{ formatoMoneda(d.totalLinea) }}</td>
-          </tr>
+    <div class="tabla-lineas">
+      <table>
+        <thead><tr><th>Artículo</th><th class="der">Cantidad</th><th class="der">Costo unit.</th><th class="der">Total</th></tr></thead>
+        <tbody>
+          @for (d of c.detalles; track d.id) {
+            <tr>
+              <td>{{ d.nombreArticulo }}</td>
+              <td class="der">{{ formatoCantidad(d.cantidad) }} {{ d.unidadBase }}</td>
+              <td class="der">{{ formatoMoneda(d.costoUnitario) }}</td>
+              <td class="der">{{ formatoMoneda(d.totalLinea) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="totales-compra">
+      <div><span>Total</span><strong>{{ dinero(c.total) }}</strong></div>
+      @if (num(c.totalDevuelto) > 0) { <div><span>Devuelto</span><strong>{{ dinero(c.totalDevuelto) }}</strong></div> }
+      <div class="neto"><span>Saldo neto</span><strong>{{ dinero(c.saldoNeto) }}</strong></div>
+    </div>
+
+    @if (c.devoluciones.length > 0) {
+      <h3>Devoluciones y anulaciones</h3>
+      <ul class="historial-devoluciones">
+        @for (d of c.devoluciones; track d.id) {
+          <li>
+            <div class="historial-devoluciones__cabecera"><strong>{{ d.motivo }}</strong><strong>{{ dinero(d.importeLineas) }}</strong></div>
+            <small>{{ fechaHora(d.fechaUtc) }} · Reintegro: {{ dinero(d.importeReintegrado) }}</small>
+            @for (linea of d.lineas; track linea.detalleCompraId) {
+              <small>{{ nombreLinea(linea.detalleCompraId) }} · {{ formatoCantidad(linea.cantidad) }} devueltas · {{ dinero(linea.importe) }}</small>
+            }
+            @for (pago of d.pagos; track pago.metodoPagoId) {
+              <small>Reintegro a {{ pago.cuentaFinancieraNombre }} por {{ pago.metodoPagoNombre }}: {{ dinero(pago.importe) }}@if (pago.referencia) { · Ref. {{ pago.referencia }} }</small>
+            }
+          </li>
         }
-      </tbody>
-    </table>
-  </div>
-  <p class="total"><span>Total</span><strong>{{ formatoMoneda(c.total) }}</strong></p>
-  <div class="acciones"><button type="button" class="fp-boton" (click)="cerrar.emit()">Cerrar</button></div>
+      </ul>
+    }
+
+    @if (puedeOperarCompra()) {
+      <h3>Acciones</h3>
+      <div class="acciones">
+        <button type="button" class="fp-boton fp-boton--secundario" (click)="iniciarAccion('devolver')">Devolución</button>
+        <button type="button" class="fp-boton fp-boton--peligro" (click)="iniciarAccion('anular')">Anular compra</button>
+      </div>
+    }
+    <div class="acciones"><button type="button" class="fp-boton" (click)="cerrar.emit()">Cerrar</button></div>
+  } @else {
+    @if (error()) {
+      <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
+    }
+    <button type="button" class="atras" (click)="volverAlDetalle()">← Volver al detalle</button>
+    <h3>{{ modoDetalle() === 'devolver' ? 'Devolución parcial o total' : 'Anular compra' }}</h3>
+    <p class="ayuda-operacion">La operación requiere una caja abierta. Los artículos devueltos saldrán del inventario y el reintegro actualizará la cuenta asociada al método de pago.</p>
+    @if (modoDetalle() === 'devolver') {
+      <div class="devolucion-compra">
+        <div class="linea-dev__encabezado"><span>Artículos disponibles para devolver</span><button type="button" class="fp-enlace" (click)="devolverTodo()">Devolver todo</button></div>
+        @for (x of lineasDevolubles(); track x.linea.id) {
+          <div class="linea-dev">
+            <div><strong>{{ x.linea.nombreArticulo }}</strong><small>Disponible: {{ formatoCantidad(x.disponible) }} de {{ formatoCantidad(x.linea.cantidad) }} {{ x.linea.unidadBase }}</small></div>
+            <input type="number" min="0" [max]="x.disponible" step="0.001" class="fp-input" placeholder="0" [attr.aria-label]="'Cantidad a devolver de ' + x.linea.nombreArticulo" [ngModel]="cantidades()[x.linea.id]" (ngModelChange)="cambiarCantidad(x.linea.id, $event, x.disponible)" />
+          </div>
+        }
+      </div>
+    }
+    <p class="total"><span>{{ modoDetalle() === 'anular' ? 'Reintegro pendiente' : 'Valor de los artículos' }}</span><strong>{{ dinero(importeOperacion()) }}</strong></p>
+    <div class="fp-campo campo-motivo">
+      <label class="fp-etiqueta" for="compra-motivo">Motivo <span class="obligatorio">*</span></label>
+      <textarea id="compra-motivo" rows="2" maxlength="250" class="fp-input" [ngModel]="motivo()" (ngModelChange)="motivo.set($event)"></textarea>
+    </div>
+    @if (importeOperacion() > 0) {
+      @if (metodos() === undefined) {
+        <p class="ayuda-operacion">Cargando métodos de pago…</p>
+      } @else if (metodos() === null || metodos()!.length === 0) {
+        <div class="fp-alerta" role="alert"><span>No hay métodos de pago activos. Configúralos en Finanzas antes de registrar el reintegro.</span></div>
+      } @else {
+        <h4>Reintegro</h4>
+        <app-pagos-editor [(pagos)]="pagos" [metodos]="metodos()!" [moneda]="moneda()" />
+      }
+    }
+    @if (problemaOperacion(); as p) { <p class="fp-campo__error problema">{{ p }}</p> }
+    <div class="acciones">
+      <button type="button" class="fp-boton fp-boton--secundario" (click)="volverAlDetalle()" [disabled]="enviando()">Cancelar</button>
+      @if (modoDetalle() === 'devolver') {
+        <button type="button" class="fp-boton fp-boton--peligro" [class.fp-cargando]="enviando()" [disabled]="enviando() || problemaOperacion() !== null" (click)="devolver()">Registrar devolución</button>
+      } @else {
+        <button type="button" class="fp-boton fp-boton--peligro" [class.fp-cargando]="enviando()" [disabled]="enviando() || problemaOperacion() !== null" (click)="anular()">Anular compra</button>
+      }
+    </div>
+  }
 } @else {
   @if (error()) {
     <div class="fp-alerta" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ error() }}</span></div>
@@ -86,11 +164,11 @@
 
   <p class="total"><span>Total</span><strong>{{ formatoMoneda(totalCalculado()) }}</strong></p>
 
-  @if (problema(); as p) { <p class="fp-campo__error problema">{{ p }}</p> }
+  @if (problemaBorrador(); as p) { <p class="fp-campo__error problema">{{ p }}</p> }
 
   <div class="acciones">
     <button type="button" class="fp-boton fp-boton--secundario" (click)="cerrar.emit()" [disabled]="enviando()">Cancelar</button>
-    <button type="button" class="fp-boton fp-boton--secundario" (click)="guardar()" [disabled]="enviando() || problema() !== null">Guardar borrador</button>
-    <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" (click)="confirmar()" [disabled]="enviando() || problema() !== null || lineas().length === 0">Confirmar compra</button>
+    <button type="button" class="fp-boton fp-boton--secundario" (click)="guardar()" [disabled]="enviando() || problemaBorrador() !== null">Guardar borrador</button>
+    <button type="button" class="fp-boton" [class.fp-cargando]="enviando()" (click)="confirmar()" [disabled]="enviando() || problemaBorrador() !== null || lineas().length === 0">Confirmar compra</button>
   </div>
 }

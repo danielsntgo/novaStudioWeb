@@ -56,6 +56,7 @@ export interface ConfigCrud<T extends { id: string; activo?: boolean }> {
   puedeCrear: boolean;
   puedeEditar: boolean;
   puedeCambiarEstado: boolean;
+  puedeEliminar?: boolean;
   acciones?: AccionFila<T>[];
 
   mensajeCreado: string;

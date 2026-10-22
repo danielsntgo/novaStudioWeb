@@ -1,5 +1,6 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, map, of } from 'rxjs';
 import { SILENCIAR_ERRORES } from '../../core/api/contextos';
@@ -18,9 +19,8 @@ import { ListaCrud } from '../../shared/crud/lista-crud';
 import { CampoForm, OpcionCampo } from '../../shared/formularios/campos';
 import { FormularioDinamico } from '../../shared/formularios/formulario-dinamico';
 import { formatearMoneda } from '../../shared/formato/formato';
-import { CajaPagina } from '../caja/caja';
 
-type Vista = 'caja' | 'cuentas' | 'movimientos' | 'transferencias' | 'metodos';
+type Vista = 'cuentas' | 'movimientos' | 'transferencias' | 'metodos';
 type TipoCuenta = 'Efectivo' | 'Banco' | 'TarjetaCredito' | 'Billetera' | 'Otro';
 type Panel = { tipo: 'cuenta'; cuenta: CuentaFinanciera | null } | { tipo: 'transferencia' } | { tipo: 'movimiento' } | null;
 
@@ -62,6 +62,7 @@ interface MovimientoFinanciero {
   devolucionVentaId: string | null;
   liquidacionComisionId: string | null;
   transferenciaFinancieraId: string | null;
+  compraId: string | null;
   usuarioId: string | null;
   migrado: boolean;
   saldoPosterior: number | string;
@@ -96,17 +97,19 @@ const TIPOS_MOVIMIENTO = [
   'AjusteCierre',
   'AjusteMigracion',
   'PagoCompra',
+  'ReembolsoCompra',
 ];
 
 @Component({
   selector: 'app-finanzas',
-  imports: [FormsModule, Icono, PanelLateral, Paginador, FormularioDinamico, ListaCrud, CajaPagina],
+  imports: [FormsModule, Icono, PanelLateral, Paginador, FormularioDinamico, ListaCrud],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './finanzas.html',
   styleUrl: './finanzas.css',
 })
 export class Finanzas implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly sesion = inject(SesionService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly confirmacion = inject(ConfirmacionService);
@@ -123,7 +126,6 @@ export class Finanzas implements OnInit {
   protected readonly cargandoCuentas = signal(true);
   protected readonly errorCuentas = signal<string | null>(null);
   protected readonly buscarCuenta = signal('');
-  protected readonly tipoCuenta = signal('');
   protected readonly estadoCuenta = signal<'true' | 'false' | ''>('true');
   protected readonly cuentaLibroId = signal('');
   protected readonly cuentaLibro = computed(() => this.cuentasDisponibles().find((cuenta) => cuenta.id === this.cuentaLibroId()) ?? null);
@@ -152,6 +154,27 @@ export class Finanzas implements OnInit {
   protected readonly erroresCampos = signal<Record<string, string[]> | null>(null);
 
   protected readonly tiposCuenta = TIPOS_CUENTA;
+  protected readonly opcionesTipoCuenta = computed<OpcionCampo[]>(() => this.metodosPagoActivos()
+    .filter((metodo) => metodo.activo)
+    .map((metodo) => ({ valor: metodo.id, etiqueta: metodo.nombre })));
+  protected readonly claseDeCuenta = (tipo: string): string => {
+    const etiquetas: Record<string, string> = {
+      Efectivo: 'Efectivo', Banco: 'Banco', TarjetaCredito: 'Tarjeta de crédito',
+      Billetera: 'Billetera digital', Otro: 'Otra cuenta',
+    };
+    return etiquetas[tipo] ?? tipo;
+  };
+  protected readonly opcionesClaseCuenta = (valor: Record<string, unknown>): OpcionCampo[] => {
+    const metodo = this.metodosPagoActivos().find((item) => item.id === valor['tipo'] && item.activo);
+    if (!metodo) return TIPOS_CUENTA;
+    return TIPOS_CUENTA.filter((opcion) => metodo.esEfectivo
+      ? opcion.valor === 'Efectivo'
+      : ['Banco', 'Billetera', 'Otro'].includes(opcion.valor));
+  };
+  protected readonly nombreTipoCuenta = (cuenta: CuentaFinanciera): string => {
+    const metodos = this.metodosPagoActivos().filter((metodo) => metodo.cuentaFinancieraId === cuenta.id);
+    return metodos.length ? metodos.map((metodo) => metodo.nombre).join(' · ') : this.claseDeCuenta(cuenta.tipo);
+  };
   protected readonly tiposMovimiento = TIPOS_MOVIMIENTO;
   protected readonly etiquetaMovimiento = (tipo: string): string => {
     const etiquetas: Record<string, string> = {
@@ -167,6 +190,7 @@ export class Finanzas implements OnInit {
       AjusteCierre: 'Ajuste de cierre',
       AjusteMigracion: 'Ajuste de migración',
       PagoCompra: 'Pago de compra',
+      ReembolsoCompra: 'Reembolso de compra',
     };
     return etiquetas[tipo] ?? tipo;
   };
@@ -185,16 +209,21 @@ export class Finanzas implements OnInit {
   ]);
   protected readonly opcionesOrigen = computed<OpcionCampo[]>(() => this.cuentasActivas()
     .filter((cuenta) => cuenta.tipo !== 'TarjetaCredito')
-    .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${cuenta.tipo} · ${this.formato(cuenta.saldo, cuenta.codigoMoneda)}` })));
-  protected readonly camposCuenta: CampoForm[] = [
+    .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${this.nombreTipoCuenta(cuenta)} · ${this.formato(cuenta.saldo, cuenta.codigoMoneda)}` })));
+  protected readonly camposCuenta = computed<CampoForm[]>(() => {
+    const panel = this.panel();
+    const cuentaNueva = panel?.tipo === 'cuenta' && !panel.cuenta;
+    return [
     { nombre: 'nombre', etiqueta: 'Nombre de la cuenta', tipo: 'texto', requerido: true },
-    { nombre: 'tipo', etiqueta: 'Tipo de cuenta', tipo: 'seleccion', requerido: true, opciones: TIPOS_CUENTA },
+    { nombre: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion', requerido: cuentaNueva, opciones: this.opcionesTipoCuenta(), ayuda: 'Solo aparecen métodos de pago activos. Al guardar, el método quedará asociado a esta cuenta.' },
+    { nombre: 'naturaleza', etiqueta: 'Clase de cuenta', tipo: 'seleccion', requerido: true, opcionesSegun: (valor) => this.opcionesClaseCuenta(valor), ayuda: 'Define cómo se calcula el saldo y si requiere caja.' },
     { nombre: 'codigoMoneda', etiqueta: 'Moneda', tipo: 'texto', requerido: true, maximo: 3, mayusculas: true, deshabilitado: true, marcador: 'COP', ayuda: 'Moneda configurada para el negocio.' },
     { nombre: 'saldoInicial', etiqueta: 'Saldo inicial / deuda inicial', tipo: 'decimal', min: 0, paso: 0.01, valorPorDefecto: 0, visibleSi: () => { const panel = this.panel(); return panel?.tipo === 'cuenta' && !panel.cuenta; }, ayuda: 'Se registra como saldo de apertura y queda en el historial de la cuenta. En tarjetas de crédito representa la deuda inicial.' },
     { nombre: 'entidad', etiqueta: 'Entidad financiera', tipo: 'texto' },
     { nombre: 'ultimosDigitos', etiqueta: 'Últimos dígitos', tipo: 'texto', maximo: 4, ayuda: 'Opcional; no ingreses el número completo.' },
-    { nombre: 'cupoCredito', etiqueta: 'Cupo de crédito', tipo: 'decimal', min: 0, visibleSi: (valor) => valor['tipo'] === 'TarjetaCredito', ayuda: 'Opcional. Limita el saldo de deuda permitido.' },
-  ];
+    { nombre: 'cupoCredito', etiqueta: 'Cupo de crédito', tipo: 'decimal', min: 0, visibleSi: (valor) => valor['naturaleza'] === 'TarjetaCredito', ayuda: 'Opcional. Limita el saldo de deuda permitido.' },
+    ];
+  });
 
   protected readonly camposTransferencia = computed<CampoForm[]>(() => [
     { nombre: 'cuentaOrigenId', etiqueta: 'Cuenta de origen', tipo: 'seleccion', requerido: true, opciones: this.opcionesOrigen() },
@@ -205,7 +234,7 @@ export class Finanzas implements OnInit {
       requerido: true,
       opcionesSegun: (valor: Record<string, unknown>) => this.cuentasActivas()
         .filter((cuenta) => cuenta.id !== valor['cuentaOrigenId'])
-        .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${cuenta.tipo} · ${this.formato(cuenta.saldo, cuenta.codigoMoneda)}` })),
+        .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${this.nombreTipoCuenta(cuenta)} · ${this.formato(cuenta.saldo, cuenta.codigoMoneda)}` })),
     },
     { nombre: 'importe', etiqueta: 'Importe', tipo: 'decimal', requerido: true, min: 0.01, paso: 0.01 },
     { nombre: 'concepto', etiqueta: 'Concepto', tipo: 'texto' },
@@ -267,7 +296,7 @@ export class Finanzas implements OnInit {
 
   ngOnInit(): void {
     if (!this.esAdmin()) {
-      this.vista.set('caja');
+      void this.router.navigateByUrl('/caja');
       return;
     }
     this.cargarResumen();
@@ -315,7 +344,7 @@ export class Finanzas implements OnInit {
   }
 
   protected cambiarVista(vista: Vista): void {
-    if (!this.esAdmin() && vista !== 'caja') return;
+    if (!this.esAdmin()) return;
     this.vista.set(vista);
     if (vista === 'transferencias') this.cargarTransferencias();
     if (vista === 'movimientos') {
@@ -350,7 +379,6 @@ export class Finanzas implements OnInit {
       context: SILENCIO(),
       params: parametros({
         buscar: this.buscarCuenta().trim() || null,
-        tipo: this.tipoCuenta() || null,
         activa: this.estadoCuenta() || null,
         pagina: this.paginaCuentas(),
         tamanoPagina: 20,
@@ -411,10 +439,12 @@ export class Finanzas implements OnInit {
   protected valorInicialCuenta(): Record<string, unknown> {
     const panel = this.panel();
     if (panel?.tipo !== 'cuenta' || !panel.cuenta) {
-      return { codigoMoneda: this.moneda() };
+      return { codigoMoneda: this.moneda(), naturaleza: 'Otro' };
     }
     const { nombre, tipo, codigoMoneda, entidad, ultimosDigitos, cupoCredito } = panel.cuenta;
-    return { nombre, tipo, codigoMoneda, entidad, ultimosDigitos, cupoCredito };
+    const metodo = this.metodosPagoActivos().find((item) => item.cuentaFinancieraId === panel.cuenta!.id && item.activo)
+      ?? this.metodosPagoActivos().find((item) => item.activo && item.esEfectivo === (tipo === 'Efectivo'));
+    return { nombre, tipo: metodo?.id ?? '', naturaleza: tipo, codigoMoneda, entidad, ultimosDigitos, cupoCredito };
   }
 
   protected guardarFormulario(valor: Record<string, unknown>): void {
@@ -425,9 +455,13 @@ export class Finanzas implements OnInit {
 
     if (panel.tipo === 'cuenta') {
       const url = panel.cuenta ? `/api/finanzas/cuentas/${panel.cuenta.id}` : '/api/finanzas/cuentas';
+      const metodoPagoId = String(valor['tipo'] ?? '');
+      const tipoCuenta = String(valor['naturaleza'] ?? '');
       const payloadCuenta = {
         ...valor,
-        cupoCredito: valor['tipo'] === 'TarjetaCredito' ? valor['cupoCredito'] ?? null : null,
+        tipo: tipoCuenta,
+        metodoPagoId: metodoPagoId || null,
+        cupoCredito: tipoCuenta === 'TarjetaCredito' ? valor['cupoCredito'] ?? null : null,
       };
       const peticion = panel.cuenta
         ? this.http.put<CuentaFinanciera>(url, payloadCuenta, { context: SILENCIO() })
@@ -619,9 +653,9 @@ export class Finanzas implements OnInit {
 
   protected opcionesCuentaPago(esEfectivo: boolean): OpcionCampo[] {
     const tiposPermitidos = esEfectivo ? ['Efectivo'] : ['Banco', 'Billetera', 'Otro'];
-    return this.cuentasActivas()
+      return this.cuentasActivas()
       .filter((cuenta) => tiposPermitidos.includes(cuenta.tipo))
-      .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${cuenta.tipo}` }));
+      .map((cuenta) => ({ valor: cuenta.id, etiqueta: `${cuenta.nombre} · ${this.nombreTipoCuenta(cuenta)}` }));
   }
 
   protected cerrarPanel(): void {

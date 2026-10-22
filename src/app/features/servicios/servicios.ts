@@ -64,6 +64,7 @@ export class Servicios {
     puedeCrear: this.esAdministrador,
     puedeEditar: this.esAdministrador,
     puedeCambiarEstado: this.esAdministrador,
+    puedeEliminar: this.esAdministrador,
     mensajeCreado: 'El servicio se creó correctamente.',
     mensajeActualizado: 'El servicio se actualizó correctamente.',
     vacio: { titulo: 'Aún no hay servicios', detalle: this.esAdministrador ? 'Crea tu primer servicio con el botón «Nuevo servicio».' : 'El administrador aún no ha creado servicios.' },

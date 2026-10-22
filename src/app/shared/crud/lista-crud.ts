@@ -286,6 +286,26 @@ export class ListaCrud<T extends { id: string; activo?: boolean }> {
     });
   }
 
+  protected async eliminar(fila: T): Promise<void> {
+    const c = this.config();
+    const aceptado = await this.confirmacion.confirmar({
+      titulo: `¿Eliminar ${c.singular}?`,
+      mensaje: `«${c.nombre(fila)}» se eliminará permanentemente si no tiene movimientos ni registros relacionados. Si conserva historial, el sistema rechazará la eliminación y podrás desactivarlo.`,
+      textoAceptar: 'Eliminar',
+      peligro: true,
+    });
+    if (!aceptado) return;
+
+    const url = c.urlItem ? c.urlItem(fila.id) : `${c.urlLista}/${fila.id}`;
+    this.http.delete(url, { context: SILENCIO() }).subscribe({
+      next: () => {
+        this.notificaciones.exito('Se eliminó correctamente.');
+        this.recargar();
+      },
+      error: (err: unknown) => this.notificaciones.error(mensajeDeError(err, 'No se pudo eliminar. Si tiene historial, desactívalo.')),
+    });
+  }
+
   protected visible(accion: AccionFila<T>, fila: T): boolean {
     return !accion.visible || accion.visible(fila);
   }

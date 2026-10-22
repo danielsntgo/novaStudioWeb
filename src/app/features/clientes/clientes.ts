@@ -46,6 +46,7 @@ export class Clientes {
     puedeCrear: true,
     puedeEditar: true,
     puedeCambiarEstado: true,
+    puedeEliminar: true,
     mensajeCreado: 'El cliente se creó correctamente.',
     mensajeActualizado: 'Los datos del cliente se actualizaron.',
     vacio: { titulo: 'Aún no hay clientes', detalle: 'Crea el primero con el botón «Nuevo cliente».' },

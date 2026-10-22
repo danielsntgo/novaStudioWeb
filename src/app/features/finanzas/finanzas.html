@@ -4,7 +4,6 @@
       <h1 class="fp-pagina__titulo">Finanzas</h1>
       <p class="fp-pagina__subtitulo">
         @switch (vista()) {
-          @case ('caja') { Administra la apertura, los movimientos y el arqueo de caja. }
           @case ('cuentas') { Consulta y administra las cuentas financieras de tu negocio. }
           @case ('movimientos') { Revisa las entradas y salidas registradas en cada cuenta. }
           @case ('transferencias') { Mueve dinero entre tus cuentas y consulta el historial. }
@@ -27,15 +26,10 @@
       <button type="button" role="tab" [class.activo]="vista() === 'movimientos'" [attr.aria-selected]="vista() === 'movimientos'" (click)="cambiarVista('movimientos')">Movimientos</button>
       <button type="button" role="tab" [class.activo]="vista() === 'transferencias'" [attr.aria-selected]="vista() === 'transferencias'" (click)="cambiarVista('transferencias')">Transferencias</button>
       <button type="button" role="tab" [class.activo]="vista() === 'metodos'" [attr.aria-selected]="vista() === 'metodos'" (click)="cambiarVista('metodos')">Métodos de pago</button>
-      <button type="button" role="tab" [class.activo]="vista() === 'caja'" [attr.aria-selected]="vista() === 'caja'" (click)="cambiarVista('caja')">Caja</button>
-    } @else {
-      <button type="button" role="tab" class="activo" aria-selected="true">Caja</button>
     }
   </nav>
 
-  @if (vista() === 'caja') {
-    <app-caja />
-  } @else if (esAdmin()) {
+  @if (esAdmin()) {
     <section class="resumen" aria-label="Resumen financiero">
       <article class="fp-tarjeta"><span>Disponible</span><strong>{{ resumen() ? formato(resumen()!.disponibleTotal) : '—' }}</strong></article>
       <article class="fp-tarjeta"><span>Deuda en tarjetas</span><strong>{{ resumen() ? formato(resumen()!.deudaTarjetasTotal) : '—' }}</strong></article>
@@ -46,12 +40,6 @@
       <form class="filtros fp-tarjeta" (ngSubmit)="filtrarCuentas()">
         <label>Buscar
           <input class="fp-input" type="search" name="buscarCuenta" maxlength="120" placeholder="Nombre o entidad" [ngModel]="buscarCuenta()" (ngModelChange)="buscarCuenta.set($event)" />
-        </label>
-        <label>Tipo
-          <select class="fp-input fp-select" name="tipoCuenta" [ngModel]="tipoCuenta()" (ngModelChange)="tipoCuenta.set($event)">
-            <option value="">Todos</option>
-            @for (tipo of tiposCuenta; track tipo.valor) { <option [value]="tipo.valor">{{ tipo.etiqueta }}</option> }
-          </select>
         </label>
         <label>Estado
           <select class="fp-input fp-select" name="estadoCuenta" [ngModel]="estadoCuenta()" (ngModelChange)="estadoCuenta.set($event)">
@@ -65,27 +53,30 @@
         <div class="fp-alerta error" role="alert"><svg app-icono="alerta" [tamano]="18"></svg><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarCuentas()">Reintentar</button></div>
       }
 
-      <section class="fp-tarjeta tabla" [attr.aria-busy]="cargandoCuentas()">
-        <div class="tabla__scroll">
-          <table>
-            <thead><tr><th>Cuenta</th><th>Tipo</th><th>Entidad</th><th>Saldo</th><th>Estado</th><th class="acciones-columna">Acciones</th></tr></thead>
-            <tbody>
-              @for (cuenta of cuentas(); track cuenta.id) {
-                <tr>
-                  <td><button type="button" class="nombre-cuenta" (click)="irAMovimientos(cuenta)">{{ cuenta.nombre }}</button><small>{{ cuenta.codigoMoneda }}@if (cuenta.ultimosDigitos) { · •••• {{ cuenta.ultimosDigitos }} }</small></td>
-                  <td>{{ cuenta.tipo === 'Billetera' ? 'Billetera digital' : cuenta.tipo === 'TarjetaCredito' ? 'Tarjeta de crédito' : cuenta.tipo }}</td>
-                  <td>{{ cuenta.entidad || '—' }}</td><td class="importe">{{ formato(cuenta.saldo, cuenta.codigoMoneda) }}</td>
-                  <td><span class="estado" [class.inactivo]="!cuenta.activa">{{ cuenta.activa ? 'Activa' : 'Inactiva' }}</span></td>
-                  <td class="acciones-fila"><button type="button" class="fp-enlace" (click)="irAMovimientos(cuenta)">Movimientos</button><button type="button" class="fp-enlace" (click)="editarCuenta(cuenta)">Editar</button><button type="button" class="fp-enlace" (click)="cambiarEstado(cuenta)">{{ cuenta.activa ? 'Desactivar' : 'Activar' }}</button></td>
-                </tr>
-              } @empty {
-                @if (!cargandoCuentas()) { <tr><td colspan="6" class="vacio">No hay cuentas para estos filtros. Crea una cuenta para registrar tus ingresos y salidas.</td></tr> }
-              }
-            </tbody>
-          </table>
-        </div>
-        <app-paginador [pagina]="paginaCuentas()" [tamano]="20" [total]="totalCuentas()" (cambio)="paginaCuentas.set($event); cargarCuentas()" />
+      <section class="cuentas-grid" [attr.aria-busy]="cargandoCuentas()">
+        @for (cuenta of cuentas(); track cuenta.id) {
+          <article class="fp-tarjeta cuenta-card">
+            <div class="cuenta-card__cabecera">
+              <span class="tipo-cuenta">{{ nombreTipoCuenta(cuenta) }}</span>
+              <span class="estado" [class.inactivo]="!cuenta.activa">{{ cuenta.activa ? 'Activa' : 'Inactiva' }}</span>
+            </div>
+            <button type="button" class="nombre-cuenta cuenta-card__nombre" (click)="irAMovimientos(cuenta)">{{ cuenta.nombre }}</button>
+            <strong class="cuenta-card__saldo">{{ formato(cuenta.saldo, cuenta.codigoMoneda) }}</strong>
+            <span class="cuenta-card__detalle">{{ cuenta.entidad || claseDeCuenta(cuenta.tipo) }}@if (cuenta.ultimosDigitos) { · •••• {{ cuenta.ultimosDigitos }} }</span>
+            <div class="cuenta-card__acciones">
+              <button type="button" class="fp-enlace" (click)="irAMovimientos(cuenta)">Movimientos</button>
+              <button type="button" class="fp-enlace" (click)="editarCuenta(cuenta)">Editar</button>
+              <button type="button" class="fp-enlace" (click)="cambiarEstado(cuenta)">{{ cuenta.activa ? 'Desactivar' : 'Activar' }}</button>
+            </div>
+          </article>
+        } @empty {
+          @if (!cargandoCuentas()) { <div class="fp-tarjeta estado-vacio"><h2>No hay cuentas para estos filtros</h2><p>Crea una cuenta para registrar entradas, salidas y transferencias.</p></div> }
+        }
       </section>
+      @if (cargandoCuentas() && cuentas().length === 0) { <section class="fp-tarjeta estado-vacio">Cargando cuentas…</section> }
+      @if (totalCuentas() > 0) {
+        <app-paginador [pagina]="paginaCuentas()" [tamano]="20" [total]="totalCuentas()" (cambio)="paginaCuentas.set($event); cargarCuentas()" />
+      }
     }
 
     @if (vista() === 'movimientos') {
@@ -98,7 +89,7 @@
         <form class="filtros fp-tarjeta filtros-movimientos" (ngSubmit)="paginaMovimientos.set(1); cargarMovimientos()">
           <label>Cuenta
             <select class="fp-input fp-select" name="cuentaLibro" [ngModel]="cuentaLibroId()" (ngModelChange)="cambiarCuentaLibro($event)">
-              @for (cuenta of cuentasActivas(); track cuenta.id) { <option [value]="cuenta.id">{{ cuenta.nombre }} · {{ cuenta.tipo }}</option> }
+              @for (cuenta of cuentasActivas(); track cuenta.id) { <option [value]="cuenta.id">{{ cuenta.nombre }} · {{ nombreTipoCuenta(cuenta) }}</option> }
             </select>
           </label>
           <label>Desde <input type="date" class="fp-input" name="desdeMovimientos" [ngModel]="desdeMovimientos()" (ngModelChange)="desdeMovimientos.set($event)" /></label>
@@ -120,7 +111,7 @@
             <thead><tr><th>Fecha</th><th>Movimiento</th><th>Sentido</th><th>Método de pago</th><th>Importe</th><th>Saldo posterior</th><th>Origen</th></tr></thead>
             <tbody>
               @for (movimiento of movimientos(); track movimiento.id) {
-                <tr><td>{{ fechaHora(movimiento.fechaUtc) }}</td><td>{{ etiquetaMovimiento(movimiento.tipo) }}<small>{{ movimiento.concepto || (movimiento.migrado ? 'Importado de historial anterior' : '') }}</small></td><td><span class="sentido" [class.salida]="movimiento.sentido === 'Salida'">{{ movimiento.sentido }}</span></td><td>{{ nombreMetodoPago(movimiento.metodoPagoId) }}</td><td class="importe">{{ formato(movimiento.importe, movimiento.codigoMoneda) }}</td><td class="importe">{{ formato(movimiento.saldoPosterior, movimiento.codigoMoneda) }}</td><td>{{ movimiento.migrado ? 'Migrado' : movimiento.ventaId ? 'Venta' : movimiento.transferenciaFinancieraId ? 'Transferencia' : movimiento.cajaId ? 'Caja' : '—' }}</td></tr>
+                <tr><td>{{ fechaHora(movimiento.fechaUtc) }}</td><td>{{ etiquetaMovimiento(movimiento.tipo) }}<small>{{ movimiento.concepto || (movimiento.migrado ? 'Importado de historial anterior' : '') }}</small></td><td><span class="sentido" [class.salida]="movimiento.sentido === 'Salida'">{{ movimiento.sentido }}</span></td><td>{{ nombreMetodoPago(movimiento.metodoPagoId) }}</td><td class="importe">{{ formato(movimiento.importe, movimiento.codigoMoneda) }}</td><td class="importe">{{ formato(movimiento.saldoPosterior, movimiento.codigoMoneda) }}</td><td>{{ movimiento.migrado ? 'Migrado' : movimiento.ventaId ? 'Venta' : movimiento.compraId ? 'Compra' : movimiento.transferenciaFinancieraId ? 'Transferencia' : movimiento.cajaId ? 'Caja' : '—' }}</td></tr>
               } @empty {
                 @if (!cargandoMovimientos()) { <tr><td colspan="7" class="vacio">No hay movimientos para los filtros seleccionados.</td></tr> }
                 @else { <tr><td colspan="7" class="vacio">Cargando movimientos…</td></tr> }
@@ -173,7 +164,11 @@
   @if (panel(); as p) {
     <app-panel-lateral [abierto]="true" [titulo]="tituloPanel()" [subtitulo]="subtituloPanel()" (cerrar)="cerrarPanel()">
       @if (p.tipo === 'cuenta') {
-        <app-formulario-dinamico [campos]="camposCuenta" [valorInicial]="valorInicialCuenta()" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" [textoGuardar]="p.cuenta ? 'Guardar cambios' : 'Crear cuenta'" (guardar)="guardarFormulario($event)" (cancelar)="cerrarPanel()" />
+        @if (opcionesTipoCuenta().length === 0) {
+          <section class="estado-vacio"><h2>Primero configura un método de pago</h2><p>El método seleccionado define qué cuenta recibirá las entradas y salidas.</p><button type="button" class="fp-boton" (click)="cerrarPanel(); cambiarVista('metodos')">Configurar métodos de pago</button></section>
+        } @else {
+          <app-formulario-dinamico [campos]="camposCuenta()" [valorInicial]="valorInicialCuenta()" [enviando]="enviando()" [error]="errorEnvio()" [erroresServidor]="erroresCampos()" [textoGuardar]="p.cuenta ? 'Guardar cambios' : 'Crear cuenta'" (guardar)="guardarFormulario($event)" (cancelar)="cerrarPanel()" />
+        }
       } @else if (p.tipo === 'movimiento') {
         <p class="nota">El saldo se aplica a la cuenta configurada para el método. Para efectivo, debe haber una caja abierta; los demás métodos actualizan su cuenta directamente.</p>
         @if (errorMetodosPago(); as mensaje) { <div class="fp-alerta error" role="alert"><span>{{ mensaje }}</span><button type="button" class="fp-enlace" (click)="cargarMetodosPago()">Reintentar</button></div> }

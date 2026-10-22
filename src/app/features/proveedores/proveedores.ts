@@ -46,6 +46,7 @@ export class Proveedores {
     puedeCrear: true,
     puedeEditar: true,
     puedeCambiarEstado: true,
+    puedeEliminar: true,
     mensajeCreado: 'El proveedor se creó correctamente.',
     mensajeActualizado: 'Los datos del proveedor se actualizaron.',
     vacio: { titulo: 'Aún no hay proveedores', detalle: 'Registra tus proveedores para poder crear compras.' },
